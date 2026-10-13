@@ -28,6 +28,13 @@ final class MatrixStore {
         }
     }
 
+    /// Replace the grid with a matrix_grid.json from anywhere. Throws if the file is not a grid.
+    func load(from url: URL) throws {
+        grid = try JSONDecoder().decode(Grid.self, from: Data(contentsOf: url))
+        selected = 0
+        message = ""
+    }
+
     func addRow() {
         grid.rows.append(Row(name: "Chapter \(grid.rows.count + 1)"))
     }

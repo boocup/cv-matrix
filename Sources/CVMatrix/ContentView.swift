@@ -1,4 +1,6 @@
 import SwiftUI
+import AppKit
+import UniformTypeIdentifiers
 
 private let numberFormat: FloatingPointFormatStyle<Double> = .number.precision(.fractionLength(0...2))
 
@@ -15,6 +17,7 @@ struct ContentView: View {
                     .disabled(player.playing)
                 Button("■ Stop (glide to 0 V)") { player.stop() }
                 Spacer()
+                Button("Load grid…", action: loadGrid)
                 HStack(spacing: 4) {
                     Text("Speed")
                     TextField("", value: speedBinding, format: numberFormat)
@@ -51,6 +54,26 @@ struct ContentView: View {
         .padding(16)
         .frame(minWidth: 1000, minHeight: 400)
         .onChange(of: store.grid) { _, _ in store.scheduleSave() }
+    }
+
+    private func loadGrid() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.json]
+        panel.allowsMultipleSelection = false
+        panel.message = "Choose a matrix_grid.json"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        let alert = NSAlert()
+        alert.messageText = "Replace the current grid with \(url.lastPathComponent)?"
+        alert.informativeText = "The current grid is overwritten (it autosaves)."
+        alert.addButton(withTitle: "Replace")
+        alert.addButton(withTitle: "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        player.stop()
+        do {
+            try store.load(from: url)
+        } catch {
+            store.message = "could not load \(url.lastPathComponent): not a grid file"
+        }
     }
 
     private var statusText: String {

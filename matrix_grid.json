@@ -1,0 +1,96 @@
+{
+ "rows": [
+  {
+   "name": "Quiet Dawn Emergence",
+   "time": 120.0,
+   "glide": 30.0,
+   "values": [
+    1.75,
+    0.0,
+    0.6,
+    2.5,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "Rising Pale Light",
+   "time": 180.0,
+   "glide": 60.0,
+   "values": [
+    3.0,
+    2.75,
+    0.5,
+    1.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "Hollow Silver Stillness",
+   "time": 180.0,
+   "glide": 45.0,
+   "values": [
+    0.75,
+    4.5,
+    1.75,
+    0.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "Luminous Swell",
+   "time": 210.0,
+   "glide": 50.0,
+   "values": [
+    4.25,
+    3.75,
+    0.6,
+    0.75,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "Fading Afterglow Hush",
+   "time": 150.0,
+   "glide": 45.0,
+   "values": [
+    0.0,
+    0.5,
+    2.0,
+    1.5,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  },
+  {
+   "name": "Deep Drone Return",
+   "time": 180.0,
+   "glide": 60.0,
+   "values": [
+    0.25,
+    2.25,
+    0.75,
+    4.0,
+    0.0,
+    0.0,
+    0.0,
+    0.0
+   ]
+  }
+ ],
+ "speed": 1.0,
+ "loop": false
+}
