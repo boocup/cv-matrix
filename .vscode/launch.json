@@ -1,0 +1,24 @@
+{
+    "configurations": [
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:cv-matrix}",
+            "name": "Debug CVMatrix",
+            "target": "CVMatrix",
+            "configuration": "debug",
+            "preLaunchTask": "swift: Build Debug CVMatrix"
+        },
+        {
+            "type": "swift",
+            "request": "launch",
+            "args": [],
+            "cwd": "${workspaceFolder:cv-matrix}",
+            "name": "Release CVMatrix",
+            "target": "CVMatrix",
+            "configuration": "release",
+            "preLaunchTask": "swift: Build Release CVMatrix"
+        }
+    ]
+}

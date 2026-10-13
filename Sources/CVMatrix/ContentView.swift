@@ -4,11 +4,16 @@ private let numberFormat: FloatingPointFormatStyle<Double> = .number.precision(.
 
 struct ContentView: View {
     @Bindable var store: MatrixStore
+    var player: Player
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 14) {
                 Text("CV Matrix").font(.title2.bold())
+                Button("▶ Play from row \(store.selected + 1)") { player.play(from: store.selected) }
+                    .buttonStyle(.borderedProminent)
+                    .disabled(player.playing)
+                Button("■ Stop (glide to 0 V)") { player.stop() }
                 Spacer()
                 HStack(spacing: 4) {
                     Text("Speed")
@@ -18,6 +23,7 @@ struct ContentView: View {
                 }
                 Toggle("Loop", isOn: $store.grid.loop)
             }
+            Text("Dry run: nothing is sent. " + statusText).foregroundStyle(.secondary)
             if !store.message.isEmpty {
                 Text(store.message).foregroundStyle(.orange)
             }
@@ -29,6 +35,7 @@ struct ContentView: View {
                         RowView(row: $row,
                                 index: store.grid.rows.firstIndex(where: { $0.id == row.id }) ?? 0,
                                 selected: store.grid.rows.firstIndex(where: { $0.id == row.id }) == store.selected,
+                                progress: progress(for: row.id),
                                 onSelect: { store.selected = store.grid.rows.firstIndex(where: { $0.id == row.id }) ?? 0 },
                                 onDuplicate: { store.duplicate(row.id) },
                                 onDelete: { store.delete(row.id) })
@@ -46,6 +53,19 @@ struct ContentView: View {
         .onChange(of: store.grid) { _, _ in store.scheduleSave() }
     }
 
+    private var statusText: String {
+        player.playing
+            ? "Playing row \(player.current + 1) (\(Int(player.elapsed)) of \(Int(player.rowTime)) s)"
+            : "Stopped."
+    }
+
+    /// 0...1 for the row being played, nil for the others.
+    private func progress(for id: Row.ID) -> Double? {
+        guard player.playing, let i = store.grid.rows.firstIndex(where: { $0.id == id }), i == player.current,
+              player.rowTime > 0 else { return nil }
+        return min(1, player.elapsed / player.rowTime)
+    }
+
     private var speedBinding: Binding<Double> {
         Binding(get: { store.grid.speed },
                 set: { store.grid.speed = clamp($0, 0.05, 20) })
@@ -57,7 +77,14 @@ struct ContentView: View {
             Text("Chapter").frame(width: 150, alignment: .leading)
             Text("Time s").frame(width: 66)
             Text("Glide s").frame(width: 66)
-            ForEach(1...outputs, id: \.self) { Text("Out \($0)").frame(width: 84) }
+            ForEach(0..<outputs, id: \.self) { k in
+                VStack(spacing: 0) {
+                    Text("Out \(k + 1)")
+                    Text(String(format: "%+.2f", player.volts[k])).monospacedDigit()
+                        .foregroundStyle(Color.green)
+                }
+                .frame(width: 84)
+            }
             Color.clear.frame(width: 58, height: 1)
         }
         .font(.caption).foregroundStyle(.secondary)
@@ -69,6 +96,7 @@ struct RowView: View {
     @Binding var row: Row
     let index: Int
     let selected: Bool
+    let progress: Double?
     let onSelect: () -> Void
     let onDuplicate: () -> Void
     let onDelete: () -> Void
@@ -95,7 +123,17 @@ struct RowView: View {
         }
         .padding(.vertical, 8).padding(.horizontal, 6)
         .background(RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .controlBackgroundColor)))
-        .overlay(RoundedRectangle(cornerRadius: 8).stroke(selected ? Color.accentColor : Color.secondary.opacity(0.25)))
+        .overlay(RoundedRectangle(cornerRadius: 8)
+            .stroke(progress != nil ? Color.green : selected ? Color.accentColor : Color.secondary.opacity(0.25)))
+        .overlay(alignment: .bottomLeading) {
+            if let progress {
+                GeometryReader { g in
+                    Rectangle().fill(Color.green).frame(width: g.size.width * progress, height: 3)
+                        .frame(maxHeight: .infinity, alignment: .bottom)
+                }
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+            }
+        }
     }
 
     private var timeBinding: Binding<Double> {
