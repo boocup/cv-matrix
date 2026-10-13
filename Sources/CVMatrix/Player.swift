@@ -1,8 +1,9 @@
 import Foundation
 import Observation
 
-/// Step 2: play logic as a dry run. Nothing here touches audio; `volts` is a simulation of where the
-/// outputs would be, using the same glide rules as the Python version (one shared slew per row).
+/// Play logic. With `sendToES8` off (the default) it is a dry run: `volts` is a simulation of where the outputs
+/// would be, using the same glide rules as the Python version (one shared slew per row). With it on, the same
+/// targets go to the ES-8 and `volts` is read back from the audio callback.
 @MainActor
 @Observable
 final class Player {
@@ -11,6 +12,8 @@ final class Player {
     private(set) var elapsed = 0.0       // seconds into the current row
     private(set) var rowTime = 0.0       // length of the current row after speed
     private(set) var volts = [Double](repeating: 0, count: outputs)
+    var sendToES8 = false            // never saved: every launch starts as a dry run
+    private(set) var message = ""
 
     @ObservationIgnored private let store: MatrixStore
     @ObservationIgnored private var target = [Double](repeating: 0, count: outputs)
@@ -18,6 +21,7 @@ final class Player {
     @ObservationIgnored private var index = 0
     @ObservationIgnored private var rowStart = 0.0
     @ObservationIgnored private var lastTick = 0.0
+    @ObservationIgnored private var out: ES8Output?
     @ObservationIgnored private var ticker: Task<Void, Never>?
 
     private static let tickSeconds = 0.05
@@ -29,6 +33,21 @@ final class Player {
 
     func play(from start: Int) {
         guard !playing else { return }
+        message = ""
+        if sendToES8 && out == nil {
+            do {
+                let o = try ES8Output()
+                try o.start()
+                out = o
+                volts = o.currentVolts()
+            } catch let e as ES8Error {
+                message = e.message
+                return
+            } catch {
+                message = "\(error)"
+                return
+            }
+        }
         index = Int(clamp(Double(start), 0, Double(store.grid.rows.count - 1)))
         playing = true
         startRow()
@@ -47,6 +66,14 @@ final class Player {
     private func glideToZero() {
         target = [Double](repeating: 0, count: outputs)
         slew = Self.stopSlew
+        out?.set(targets: target, slew: slew)
+    }
+
+    /// App quit: glide to 0 V and close the device before the process ends (blocks up to ~2.5 s).
+    func shutdown() {
+        playing = false
+        out?.shutdown()
+        out = nil
     }
 
     private func startRow() {
@@ -68,6 +95,7 @@ final class Player {
         target = values.map { clamp($0, -maxVolts, maxVolts) }
         let dist = zip(target, volts).map { abs($0 - $1) }.max() ?? 0
         slew = dist > 0 ? clamp(dist / max(glide, 0.2), 0.05, 100) : 1
+        out?.set(targets: target, slew: slew)
     }
 
     private func startTicker() {
@@ -86,9 +114,13 @@ final class Player {
         let t = now()
         let dt = t - lastTick
         lastTick = t
-        for k in 0..<outputs {
-            let step = slew * dt
-            volts[k] += max(-step, min(step, target[k] - volts[k]))
+        if let out {
+            volts = out.currentVolts()
+        } else {
+            for k in 0..<outputs {
+                let step = slew * dt
+                volts[k] += max(-step, min(step, target[k] - volts[k]))
+            }
         }
         if playing {
             elapsed = t - rowStart
@@ -97,6 +129,8 @@ final class Player {
                 startRow()
             }
         } else if volts.allSatisfy({ abs($0) < 1e-6 }) {
+            out?.close()
+            out = nil
             ticker?.cancel()
             ticker = nil
         }

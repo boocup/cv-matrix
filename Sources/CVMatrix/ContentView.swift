@@ -6,7 +6,7 @@ private let numberFormat: FloatingPointFormatStyle<Double> = .number.precision(.
 
 struct ContentView: View {
     @Bindable var store: MatrixStore
-    var player: Player
+    @Bindable var player: Player
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -16,6 +16,8 @@ struct ContentView: View {
                     .buttonStyle(.borderedProminent)
                     .disabled(player.playing)
                 Button("■ Stop (glide to 0 V)") { player.stop() }
+                Toggle("Send to ES-8", isOn: $player.sendToES8)
+                    .disabled(player.playing)
                 Spacer()
                 Button("Load grid…", action: loadGrid)
                 HStack(spacing: 4) {
@@ -26,7 +28,11 @@ struct ContentView: View {
                 }
                 Toggle("Loop", isOn: $store.grid.loop)
             }
-            Text("Dry run: nothing is sent. " + statusText).foregroundStyle(.secondary)
+            Text((player.sendToES8 ? "Sending to the ES-8. " : "Dry run: nothing is sent. ") + statusText)
+                .foregroundStyle(player.sendToES8 ? Color.orange : .secondary)
+            if !player.message.isEmpty {
+                Text(player.message).foregroundStyle(.red)
+            }
             if !store.message.isEmpty {
                 Text(store.message).foregroundStyle(.orange)
             }
@@ -53,6 +59,9 @@ struct ContentView: View {
         }
         .padding(16)
         .frame(minWidth: 1000, minHeight: 400)
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
+            player.shutdown()
+        }
         .onChange(of: store.grid) { _, _ in store.scheduleSave() }
     }
 
