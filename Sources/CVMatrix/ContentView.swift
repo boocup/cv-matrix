@@ -7,6 +7,9 @@ private let numberFormat: FloatingPointFormatStyle<Double> = .number.precision(.
 struct ContentView: View {
     @Bindable var store: MatrixStore
     @Bindable var player: Player
+    @State private var window: NSWindow?
+    @State private var contentSize = CGSize.zero    // all rows, as laid out
+    @State private var viewportSize = CGSize.zero   // the part of the window the rows are shown in
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -60,7 +63,11 @@ struct ContentView: View {
                     Button("+ Add row") { store.addRow() }
                 }
                 .padding(.bottom, 8)
+                .background(GeometryReader { g in Color.clear.preference(key: ContentSizeKey.self, value: g.size) })
             }
+            .background(GeometryReader { g in Color.clear.preference(key: ViewportSizeKey.self, value: g.size) })
+            .onPreferenceChange(ContentSizeKey.self) { contentSize = $0 }
+            .onPreferenceChange(ViewportSizeKey.self) { viewportSize = $0 }
 
             Text("Drag a knob up or down (hold Shift for fine steps). Double-click a knob for 0 V. Click a row number to select it. Time is the whole row in seconds; glide is the part of it spent moving from the previous row. All knobs run -5 to +5 V.")
                 .font(.caption).foregroundStyle(.secondary)
@@ -71,9 +78,28 @@ struct ContentView: View {
             Color.clear.contentShape(Rectangle())
                 .onTapGesture { NSApp.keyWindow?.makeFirstResponder(nil) }   // click empty space: leave the text field
         )
+        .background(WindowAccessor { window = $0 })
+        .onAppear { fitWindowSoon() }
         .onChange(of: store.grid) { _, _ in
             store.scheduleSave()
             player.gridChanged()
+        }
+    }
+
+    /// Size the window to show every row (as far as the screen allows). Runs on open and after loading a grid.
+    private func fitWindowSoon() {
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 300_000_000)   // let the first layout happen
+            guard let window, contentSize.width > 0, viewportSize.width > 0, let screen = window.screen ?? NSScreen.main else { return }
+            let content = window.contentLayoutRect.size
+            let wanted = NSSize(width: contentSize.width + (content.width - viewportSize.width),
+                                height: contentSize.height + (content.height - viewportSize.height))
+            let room = screen.visibleFrame.size
+            var frame = window.frame
+            let target = window.frameRect(forContentRect: NSRect(origin: .zero, size: wanted)).size
+            frame.size = NSSize(width: min(max(target.width, 1000), room.width), height: min(target.height, room.height))
+            frame.origin.y = window.frame.maxY - frame.height                  // keep the top edge where it is
+            window.setFrame(window.constrainFrameRect(frame, to: screen), display: true, animate: false)
         }
     }
 
@@ -92,6 +118,7 @@ struct ContentView: View {
         player.stop()
         do {
             try store.load(from: url)
+            fitWindowSoon()
         } catch {
             store.message = "could not load \(url.lastPathComponent): not a grid file"
         }
@@ -212,5 +239,30 @@ extension View {
     /// Escape leaves a text field (what you typed is kept), so a stray click into one is easy to get out of.
     func escapeLeavesField() -> some View {
         onExitCommand { NSApp.keyWindow?.makeFirstResponder(nil) }
+    }
+}
+
+private struct ContentSizeKey: PreferenceKey {
+    static let defaultValue = CGSize.zero
+    static func reduce(value: inout CGSize, nextValue: () -> CGSize) { value = nextValue() }
+}
+
+private struct ViewportSizeKey: PreferenceKey {
+    static let defaultValue = CGSize.zero
+    static func reduce(value: inout CGSize, nextValue: () -> CGSize) { value = nextValue() }
+}
+
+/// Hands the hosting NSWindow to SwiftUI.
+private struct WindowAccessor: NSViewRepresentable {
+    let onWindow: (NSWindow) -> Void
+
+    func makeNSView(context: Context) -> NSView {
+        let v = NSView()
+        DispatchQueue.main.async { if let w = v.window { onWindow(w) } }
+        return v
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {
+        DispatchQueue.main.async { if let w = nsView.window { onWindow(w) } }
     }
 }
