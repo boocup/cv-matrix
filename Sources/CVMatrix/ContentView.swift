@@ -27,6 +27,7 @@ struct ContentView: View {
                     Text("Speed")
                     TextField("", value: speedBinding, format: numberFormat)
                         .frame(width: 60)
+                        .escapeLeavesField()
                     Text("(0.5 = twice as fast)").foregroundStyle(.secondary)
                 }
                 Toggle("Loop", isOn: $store.grid.loop)
@@ -148,9 +149,9 @@ struct RowView: View {
                 .frame(width: 34)
                 .contentShape(Rectangle())
                 .onTapGesture(perform: onSelect)
-            TextField("", text: $row.name).frame(width: 150)
-            TextField("", value: timeBinding, format: numberFormat).frame(width: 66)
-            TextField("", value: glideBinding, format: numberFormat).frame(width: 66)
+            TextField("", text: $row.name).frame(width: 150).escapeLeavesField()
+            TextField("", value: timeBinding, format: numberFormat).frame(width: 66).escapeLeavesField()
+            TextField("", value: glideBinding, format: numberFormat).frame(width: 66).escapeLeavesField()
             ForEach(0..<outputs, id: \.self) { k in
                 KnobView(value: $row.values[k])
             }
@@ -200,5 +201,12 @@ struct BrandMark: View {
         }
         .padding(.bottom, 2)
         .accessibilityLabel("THEREELPEET")
+    }
+}
+
+extension View {
+    /// Escape leaves a text field (what you typed is kept), so a stray click into one is easy to get out of.
+    func escapeLeavesField() -> some View {
+        onExitCommand { NSApp.keyWindow?.makeFirstResponder(nil) }
     }
 }
