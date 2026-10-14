@@ -3,7 +3,7 @@
 Steps 1-3 of `swift-matrix-plan.md` are done and pushed (last commit `1c2f557`). Step 3 was run on the real ES-8 and sounds right.
 
 ## Works
-- Grid UI: rows, 8 knobs (drag, Shift = fine, double-click = 0 V), time/glide, speed, loop, add/duplicate/delete, autosave.
+- Grid UI: rows, 8 knobs (drag, Shift = fine, double-click = 0 V), time/glide, speed, loop, add/duplicate/delete. Autosave is a switch, OFF at launch (edits are lost on quit unless ticked).
 - Play/Stop with progress bar and live voltage readout under each "Out n".
 - "Send to ES-8" switch (ON at every launch, untick for a dry run). On: Core Audio output on ES-8 outs 1-8, +-5 V cap, shared-slew glide, glide to 0 V on Stop and on quit.
 - "Load grid..." loads a matrix_grid.json (pulled forward from step 5). Grid file: `~/Library/Application Support/CVMatrix/matrix_grid.json`.

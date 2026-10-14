@@ -34,6 +34,8 @@ struct ContentView: View {
                     Text("(0.5 = twice as fast)").foregroundStyle(.secondary)
                 }
                 Toggle("Loop", isOn: $store.grid.loop)
+                Toggle("Autosave", isOn: $store.autosave)
+                    .help("Write edits to matrix_grid.json as you make them")
             }
             Text((player.sendToES8 ? "Sending to the ES-8. " : "Dry run: nothing is sent. ") + statusText)
                 .foregroundStyle(player.sendToES8 ? Color.orange : .secondary)
@@ -80,6 +82,7 @@ struct ContentView: View {
         )
         .background(WindowAccessor { window = $0 })
         .onAppear { fitWindowSoon() }
+        .onChange(of: store.autosave) { _, on in if on { store.scheduleSave() } }
         .onChange(of: store.grid) { _, _ in
             store.scheduleSave()
             player.gridChanged()

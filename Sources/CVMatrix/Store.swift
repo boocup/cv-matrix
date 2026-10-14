@@ -7,6 +7,7 @@ final class MatrixStore {
     var grid: Grid
     var selected = 0
     var message = ""
+    var autosave = false             // off at every launch: edits are not written to disk unless this is ticked
 
     @ObservationIgnored private var saveTask: Task<Void, Never>?
 
@@ -55,6 +56,7 @@ final class MatrixStore {
     /// Called after every change; writes the file 250 ms after the last one.
     func scheduleSave() {
         saveTask?.cancel()
+        guard autosave else { return }
         let grid = grid
         saveTask = Task {
             try? await Task.sleep(nanoseconds: 250_000_000)
