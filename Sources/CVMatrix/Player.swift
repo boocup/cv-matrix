@@ -1,7 +1,7 @@
 import Foundation
 import Observation
 
-/// Play logic. With `sendToES8` off (the default) it is a dry run: `volts` is a simulation of where the outputs
+/// Play logic. With `sendToES8` off it is a dry run: `volts` is a simulation of where the outputs
 /// would be, using the same glide rules as the Python version (one shared slew per row). With it on, the same
 /// targets go to the ES-8 and `volts` is read back from the audio callback.
 @MainActor
@@ -12,7 +12,7 @@ final class Player {
     private(set) var elapsed = 0.0       // seconds into the current row
     private(set) var rowTime = 0.0       // length of the current row after speed
     private(set) var volts = [Double](repeating: 0, count: outputs)
-    var sendToES8 = false            // never saved: every launch starts as a dry run
+    var sendToES8 = true             // never saved: every launch starts with sending on; untick for a dry run
     private(set) var message = ""
 
     @ObservationIgnored private let store: MatrixStore
