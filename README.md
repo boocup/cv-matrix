@@ -15,7 +15,7 @@ Needs macOS 14 or later and Xcode. "Send to ES-8" is on at launch; untick it for
 - Drag a knob up or down; hold Shift for fine steps; double-click for 0 V.
 - Click a row number to start playing from that row, or to jump there while playing.
 - Knob edits on the playing row take effect while it plays (0.5 s glide).
-- "Load grid..." opens a `matrix_grid.json`. With the Autosave switch ticked (off by default) the grid is saved to `~/Library/Application Support/CVMatrix/matrix_grid.json`.
+- "Load grid..." opens a `matrix_grid.json`; "Save grid..." saves a copy wherever you choose. With the Autosave switch ticked (off by default) the grid is saved to `~/Library/Application Support/CVMatrix/matrix_grid.json`.
 
 Output is capped at +-5 V. Full scale (+-1.0 in the audio stream) is taken as about +-10 V; check your unit with a meter.
 

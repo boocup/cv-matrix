@@ -53,6 +53,17 @@ final class MatrixStore {
         selected = min(selected, grid.rows.count - 1)
     }
 
+    nonisolated static func write(_ grid: Grid, to url: URL) throws {
+        let enc = JSONEncoder()
+        enc.outputFormatting = [.prettyPrinted, .sortedKeys]
+        try enc.encode(grid).write(to: url, options: .atomic)
+    }
+
+    /// Save a copy of the grid wherever the user chooses (matrix_grid.json format).
+    func save(to url: URL) throws {
+        try Self.write(grid, to: url)
+    }
+
     /// Called after every change; writes the file 250 ms after the last one.
     func scheduleSave() {
         saveTask?.cancel()
@@ -61,10 +72,8 @@ final class MatrixStore {
         saveTask = Task {
             try? await Task.sleep(nanoseconds: 250_000_000)
             guard !Task.isCancelled else { return }
-            let enc = JSONEncoder()
-            enc.outputFormatting = [.prettyPrinted, .sortedKeys]
             do {
-                try enc.encode(grid).write(to: Self.fileURL, options: .atomic)
+                try Self.write(grid, to: Self.fileURL)
             } catch {
                 self.message = "could not save: \(error.localizedDescription)"
             }

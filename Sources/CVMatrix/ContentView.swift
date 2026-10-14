@@ -26,6 +26,7 @@ struct ContentView: View {
                     .disabled(player.playing)
                 Spacer()
                 Button("Load grid…", action: loadGrid)
+                Button("Save grid…", action: saveGrid)
                 HStack(spacing: 4) {
                     Text("Speed")
                     TextField("", value: speedBinding, format: numberFormat)
@@ -103,6 +104,20 @@ struct ContentView: View {
             frame.size = NSSize(width: min(max(target.width, 1000), room.width), height: min(target.height, room.height))
             frame.origin.y = window.frame.maxY - frame.height                  // keep the top edge where it is
             window.setFrame(window.constrainFrameRect(frame, to: screen), display: true, animate: false)
+        }
+    }
+
+    private func saveGrid() {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.json]
+        panel.nameFieldStringValue = "matrix_grid.json"
+        panel.message = "Save a copy of the grid"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            try store.save(to: url)
+            store.message = ""
+        } catch {
+            store.message = "could not save \(url.lastPathComponent): \(error.localizedDescription)"
         }
     }
 
