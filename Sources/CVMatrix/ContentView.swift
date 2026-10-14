@@ -174,12 +174,7 @@ struct RowView: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            Text("\(index + 1)")
-                .font(.body.weight(.semibold))
-                .foregroundStyle(selected ? Color.accentColor : .secondary)
-                .frame(width: 34)
-                .contentShape(Rectangle())
-                .onTapGesture(perform: onSelect)
+            RowNumber(number: index + 1, selected: selected, playing: progress != nil, action: onSelect)
             TextField("", text: $row.name).frame(width: 150).escapeLeavesField()
             TextField("", value: timeBinding, format: numberFormat).frame(width: 66).escapeLeavesField()
             TextField("", value: glideBinding, format: numberFormat).frame(width: 66).escapeLeavesField()
@@ -264,5 +259,37 @@ private struct WindowAccessor: NSViewRepresentable {
 
     func updateNSView(_ nsView: NSView, context: Context) {
         DispatchQueue.main.async { if let w = nsView.window { onWindow(w) } }
+    }
+}
+
+/// The row number as a button: a round badge that shows a play triangle and the pointing-hand cursor on hover.
+struct RowNumber: View {
+    let number: Int
+    let selected: Bool
+    let playing: Bool
+    let action: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        ZStack {
+            Circle().fill(playing ? Color.green : hovering ? Color.accentColor : Color.secondary.opacity(0.18))
+            Circle().strokeBorder(selected && !playing ? Color.accentColor : .clear, lineWidth: 2)
+            if hovering || playing {
+                Image(systemName: "play.fill").font(.system(size: 11, weight: .bold)).foregroundStyle(.white)
+            } else {
+                Text("\(number)").font(.body.weight(.semibold)).foregroundStyle(selected ? Color.accentColor : .primary)
+            }
+        }
+        .frame(width: 28, height: 28)
+        .frame(width: 34)
+        .contentShape(Circle())
+        .onHover { inside in
+            hovering = inside
+            if inside { NSCursor.pointingHand.push() } else { NSCursor.pop() }
+        }
+        .onTapGesture(perform: action)
+        .help("Play from row \(number)")
+        .accessibilityLabel("Play from row \(number)")
+        .accessibilityAddTraits(.isButton)
     }
 }
