@@ -55,7 +55,7 @@ struct ContentView: View {
                                 onSelect: {
                                     let i = store.grid.rows.firstIndex(where: { $0.id == row.id }) ?? 0
                                     store.selected = i
-                                    player.jump(to: i)
+                                    if player.playing { player.jump(to: i) } else { player.play(from: i) }
                                 },
                                 onDuplicate: { store.duplicate(row.id) },
                                 onDelete: { store.delete(row.id) })
@@ -69,7 +69,7 @@ struct ContentView: View {
             .onPreferenceChange(ContentSizeKey.self) { contentSize = $0 }
             .onPreferenceChange(ViewportSizeKey.self) { viewportSize = $0 }
 
-            Text("Drag a knob up or down (hold Shift for fine steps). Double-click a knob for 0 V. Click a row number to select it. Time is the whole row in seconds; glide is the part of it spent moving from the previous row. All knobs run -5 to +5 V.")
+            Text("Drag a knob up or down (hold Shift for fine steps). Double-click a knob for 0 V. Click a row number to play from that row (or jump to it while playing). Time is the whole row in seconds; glide is the part of it spent moving from the previous row. All knobs run -5 to +5 V.")
                 .font(.caption).foregroundStyle(.secondary)
         }
         .padding(16)
