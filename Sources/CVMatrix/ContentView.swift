@@ -63,9 +63,6 @@ struct ContentView: View {
         }
         .padding(16)
         .frame(minWidth: 1000, minHeight: 400)
-        .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
-            player.shutdown()
-        }
         .onChange(of: store.grid) { _, _ in
             store.scheduleSave()
             player.gridChanged()
