@@ -12,7 +12,7 @@ struct ContentView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 14) {
                 VStack(alignment: .leading, spacing: 0) {
-                    Text("THEREELPEET").font(.caption.weight(.semibold)).tracking(3).foregroundStyle(.secondary)
+                    BrandMark()
                     Text("CV Matrix").font(.title2.bold())
                 }
                 Button("▶ Play from row \(store.selected + 1)") { player.play(from: store.selected) }
@@ -183,5 +183,22 @@ struct RowView: View {
     private var glideBinding: Binding<Double> {
         Binding(get: { row.glide },
                 set: { row.glide = clamp($0, 0, row.time) })
+    }
+}
+
+/// THEREELPEET as on the module panels: the word in black (white in dark mode) with a red copy offset slightly
+/// to the right and down. Offsets are the SVG's (1.3, 1.1 at 10.7 px) scaled to this size.
+struct BrandMark: View {
+    private let size = 15.0
+
+    var body: some View {
+        let word = Text("THEREELPEET").font(.system(size: size)).tracking(size * 0.22)
+        ZStack(alignment: .topLeading) {
+            word.foregroundStyle(.primary)
+            word.foregroundStyle(Color(red: 1, green: 0, blue: 0))
+                .offset(x: size * 0.12, y: size * 0.1)
+        }
+        .padding(.bottom, 2)
+        .accessibilityLabel("THEREELPEET")
     }
 }
