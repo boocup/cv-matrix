@@ -1,5 +1,7 @@
 # THEREELPEET CV Matrix
 
+![THEREELPEET CV Matrix playing a six-row grid](res/CVMatrix-screenshot.png)
+
 A small Mac app that turns an Expert Sleepers **ES-8** into eight slowly moving control voltages for a modular rack.
 
 You write a piece as a list of **chapters** (rows). Each row holds eight voltages (one per ES-8 output, -5 to +5 V), how long the row lasts, and how much of that time is spent gliding in from the previous row. Press play and the rows run top to bottom, optionally looping. The outputs never jump: every change is a glide. It runs fully offline and sends nothing anywhere except the ES-8.
