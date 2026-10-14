@@ -4,6 +4,13 @@ import SwiftUI
 final class AppDelegate: NSObject, NSApplicationDelegate {
     @MainActor static var player: Player?
 
+    /// Started from a terminal (swift run) the app is not a bundle and may not come to the front,
+    /// so Cmd-Q would go to whatever is in front instead (e.g. VS Code).
+    @MainActor func applicationDidFinishLaunching(_ notification: Notification) {
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
 
     @MainActor func applicationWillTerminate(_ notification: Notification) {
