@@ -11,7 +11,10 @@ struct ContentView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 14) {
-                Text("CV Matrix").font(.title2.bold())
+                VStack(alignment: .leading, spacing: 0) {
+                    Text("THEREELPEET").font(.caption.weight(.semibold)).tracking(3).foregroundStyle(.secondary)
+                    Text("CV Matrix").font(.title2.bold())
+                }
                 Button("▶ Play from row \(store.selected + 1)") { player.play(from: store.selected) }
                     .buttonStyle(.borderedProminent)
                     .disabled(player.playing)

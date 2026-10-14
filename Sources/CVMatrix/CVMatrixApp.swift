@@ -33,7 +33,7 @@ struct CVMatrixApp: App {
     }
 
     var body: some Scene {
-        WindowGroup("CV Matrix") {
+        WindowGroup("THEREELPEET CV Matrix") {
             ContentView(store: store, player: player)
         }
     }
