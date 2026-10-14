@@ -67,6 +67,10 @@ struct ContentView: View {
         }
         .padding(16)
         .frame(minWidth: 1000, minHeight: 400)
+        .background(
+            Color.clear.contentShape(Rectangle())
+                .onTapGesture { NSApp.keyWindow?.makeFirstResponder(nil) }   // click empty space: leave the text field
+        )
         .onChange(of: store.grid) { _, _ in
             store.scheduleSave()
             player.gridChanged()
