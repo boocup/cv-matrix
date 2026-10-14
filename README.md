@@ -1,27 +1,135 @@
 # THEREELPEET CV Matrix
 
-A native Mac app that sends slowly changing control voltages to the eight outputs of an Expert Sleepers **ES-8**, for a modular rack.
+A small Mac app that turns an Expert Sleepers **ES-8** into eight slowly moving control voltages for a modular rack.
 
-Chapters run down the left. Each row has eight knobs (ES-8 outputs 1-8, -5 to +5 V), a time, and a glide. Rows play top to bottom, optionally looping, with a speed multiplier. The outputs glide between rows and glide back to 0 V on Stop and on quit. It runs fully offline.
+You write a piece as a list of **chapters** (rows). Each row holds eight voltages (one per ES-8 output, -5 to +5 V), how long the row lasts, and how much of that time is spent gliding in from the previous row. Press play and the rows run top to bottom, optionally looping. The outputs never jump: every change is a glide. It runs fully offline and sends nothing anywhere except the ES-8.
 
-## Run
+It is made for long, evolving pieces: level or rate CVs, slow offsets, crossfades, anything that should drift over minutes rather than steps.
 
-    swift run
+## What you need
 
-Or build a double-click app: `./scripts/make-app.sh` makes `dist/CVMatrix.app` (release build, icon, ad-hoc signed). Drag it into /Applications. The first launch may need a right-click, Open.
+- A Mac running macOS 14 or later
+- An Expert Sleepers ES-8 connected over USB (not needed for a dry run)
+- To build it: Xcode (the command-line tools alone are not enough) and Swift 5.9 or later
 
-Needs macOS 14 or later and Xcode. "Send to ES-8" is on at launch; untick it for a dry run that only shows the computed voltages.
+It has been tested on Apple Silicon with an ES-8. There is no prebuilt download, so you build it yourself (below).
 
-## Use
+## Install
 
-- Drag a knob up or down; hold Shift for fine steps; double-click for 0 V.
-- Click a row number to start playing from that row, or to jump there while playing.
-- Knob edits on the playing row take effect while it plays (0.5 s glide).
-- "Load grid..." opens a `matrix_grid.json`; "Save grid..." saves a copy wherever you choose. With the Autosave switch ticked (off by default) the grid is saved to `~/Library/Application Support/CVMatrix/matrix_grid.json`.
+    git clone https://github.com/boocup/cv-matrix.git
+    cd cv-matrix
+    ./scripts/make-app.sh
 
-Output is capped at +-5 V. Full scale (+-1.0 in the audio stream) is taken as about +-10 V; check your unit with a meter.
+That makes `dist/CVMatrix.app` (a release build with an icon, signed ad hoc). Drag it into `/Applications`.
 
-`reference/` holds the Python prototype this was ported from.
+The first time you open it, macOS may refuse because the app is not notarised. Right-click it, choose **Open**, then confirm. You only need to do this once.
+
+macOS may ask for microphone access. The ES-8 is one audio device with both inputs and outputs, so the system treats opening it as possible recording. CV Matrix only sends voltages and never reads the inputs, so you can allow or deny it.
+
+To run it without building the `.app`, use `swift run` in the project folder.
+
+## First run: do this before patching it into anything
+
+A wrong voltage goes into real gear. The first time:
+
+1. Patch **only Out 1** to a multimeter or to an ES-8 input you can read back. Leave everything else unpatched.
+2. Set one row with Out 1 at +2 V and a glide of a few seconds.
+3. Press play and check the meter. It should read about +2 V.
+
+Full scale (+-1.0 in the audio stream) is assumed to be about +-10 V on the jack. The author measured it about 1% low at 1, 2.5 and 5 V. Your unit may differ, so check it.
+
+## Using it
+
+| To do this | Do this |
+|---|---|
+| Change a voltage | Drag a knob up or down (200 px is the full 10 V) |
+| Fine adjust | Hold **Shift** while dragging (ten times finer) |
+| Set a knob to 0 V | Double-click it |
+| Play from a row | Click its round number badge |
+| Jump to another row while playing | Click that row's badge |
+| Stop | Press **Stop**; every output glides to 0 V |
+| Add, copy or remove a row | **+ Add row**, the copy button, the delete button on each row |
+| Leave a text box | Press **Escape** or click empty space |
+
+Each row has:
+
+- **Chapter**: a name, up to 40 characters.
+- **Time**: how long the row lasts, in seconds (1 to 3600).
+- **Glide**: how many of those seconds are spent moving from the previous row's voltages to this row's. It can't be longer than the time.
+- **Out 1 to Out 8**: the eight knobs, -5 to +5 V.
+
+Along the top:
+
+- **Play from row N**: starts from the selected row.
+- **Send to ES-8**: on at every launch. Untick it for a **dry run** that shows the computed voltages without sending anything.
+- **Speed**: multiplies every row's time and glide. 0.5 is twice as fast, 2 is half speed.
+- **Loop**: go back to row 1 after the last row. Otherwise it stops and glides to 0 V.
+- **Autosave**: off at every launch (see Files below).
+
+The small green numbers under each "Out" heading are where that output is right now, so you can watch the glides.
+
+If you change a knob on the row that is playing, that output follows it with a half-second glide. Edits to other rows take effect when those rows play.
+
+The window sizes itself to show every row when it opens (up to the size of your screen).
+
+## How the glide works
+
+When a row starts, the largest voltage change across the eight outputs takes exactly the glide time. Outputs with smaller changes get there sooner and then wait. All eight share one speed in volts per second. Very short glides are treated as at least 0.2 s so an output never snaps.
+
+On Stop, on reaching the end of a piece, and on quit, the outputs glide back to 0 V at 10 V per second before the audio device is closed.
+
+## Files
+
+The grid is a small JSON file:
+
+    {
+      "rows": [
+        {
+          "name": "Quiet Dawn Emergence",
+          "time": 120,
+          "glide": 30,
+          "values": [1.75, 0, 0.6, 2.5, 0, 0, 0, 0]
+        }
+      ],
+      "speed": 1.0,
+      "loop": false
+    }
+
+- **Load grid...** opens a file like this. It asks before replacing the current grid and stops playback first. Loading never writes back to the file you opened.
+- **Save grid...** saves a copy of the current grid wherever you choose.
+- **Autosave** is a switch, off at every launch. When ticked, the current grid is written as you edit, to `~/Library/Application Support/CVMatrix/matrix_grid.json`, and that file is what the app opens at launch. With it off, your edits are lost when you quit unless you used Save grid.
+
+The file format is the same as the Python prototype's, which is kept in [`reference/`](reference/) for comparison.
+
+## Safety and limits
+
+- Every output is capped at **+-5 V** in the code, whatever the grid says.
+- Outputs move by gliding only. They never jump to a new value.
+- The ES-8 is opened only when you press play with **Send to ES-8** ticked, and released when the outputs reach 0 V.
+- Only ES-8 outputs 1 to 8 are used. macOS reports 16 outputs, but the rest are ADAT channels that only carry signal with an expander.
+- After the rack is power cycled, the ES-8 can disappear from the Mac until its USB cable is unplugged and plugged back in. If the app says it can't find or start the ES-8, do that and try again.
+- Quit with Cmd-Q or by closing the window, not by killing the process. A quit glides the outputs to 0 V first; a kill does not.
+- This is a hobby project with no warranty. Check voltages before patching into anything you can't afford to damage.
+
+## Project layout
+
+    Sources/CVMatrix/
+      CVMatrixApp.swift   app entry, window and quit handling
+      ContentView.swift   the grid screen
+      KnobView.swift      the knobs
+      Model.swift         rows and the grid file format
+      Store.swift         the grid, loading, saving
+      Player.swift        play logic and glides
+      ES8Output.swift     Core Audio output to the ES-8
+    scripts/
+      make-app.sh         builds dist/CVMatrix.app
+      make-icon.swift     draws the app icon
+    reference/            the Python prototype this was ported from
+
+## Not yet done
+
+- Loading and exporting `pieces/*.json` files for the Python tools
+- A separate glide speed per output, so every output takes the full glide time
 
 ## License
 
