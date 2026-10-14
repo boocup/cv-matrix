@@ -9,7 +9,7 @@ Steps 1-3 of `swift-matrix-plan.md` are done and pushed (last commit `1c2f557`).
 - "Load grid..." loads a matrix_grid.json (pulled forward from step 5). Grid file: `~/Library/Application Support/CVMatrix/matrix_grid.json`.
 - Run it: `swift run` from this folder. Quit with Cmd-Q (glides to 0 V first).
 
-## Next: step 4
+## Step 4 (built, awaiting your test)
 - Jump to a row while playing (click the row number).
 - Live knob edits while playing (Python re-applies the edited row with a 0.5 s glide).
 - Check the readout and Stop behaviour with the rack connected.

@@ -45,7 +45,11 @@ struct ContentView: View {
                                 index: store.grid.rows.firstIndex(where: { $0.id == row.id }) ?? 0,
                                 selected: store.grid.rows.firstIndex(where: { $0.id == row.id }) == store.selected,
                                 progress: progress(for: row.id),
-                                onSelect: { store.selected = store.grid.rows.firstIndex(where: { $0.id == row.id }) ?? 0 },
+                                onSelect: {
+                                    let i = store.grid.rows.firstIndex(where: { $0.id == row.id }) ?? 0
+                                    store.selected = i
+                                    player.jump(to: i)
+                                },
                                 onDuplicate: { store.duplicate(row.id) },
                                 onDelete: { store.delete(row.id) })
                     }
@@ -62,7 +66,10 @@ struct ContentView: View {
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
             player.shutdown()
         }
-        .onChange(of: store.grid) { _, _ in store.scheduleSave() }
+        .onChange(of: store.grid) { _, _ in
+            store.scheduleSave()
+            player.gridChanged()
+        }
     }
 
     private func loadGrid() {

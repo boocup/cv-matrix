@@ -54,6 +54,22 @@ final class Player {
         startTicker()
     }
 
+    /// Jump to a row while playing: it starts that row now, gliding from wherever the outputs are.
+    func jump(to row: Int) {
+        guard playing else { return }
+        index = Int(clamp(Double(row), 0, Double(store.grid.rows.count - 1)))
+        startRow()
+    }
+
+    /// A knob (or anything else in the grid) changed while playing: the playing row follows it, with a 0.5 s glide.
+    func gridChanged() {
+        guard playing else { return }
+        let rows = store.grid.rows
+        index = min(index, rows.count - 1)
+        current = index
+        apply(rows[index].values, glide: 0.5)
+    }
+
     func stop() {
         guard playing else { return }
         playing = false
