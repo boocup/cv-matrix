@@ -12,7 +12,7 @@ It is made for long, evolving pieces: level or rate CVs, slow offsets, crossfade
 
 - A Mac running macOS 14 or later
 - An Expert Sleepers ES-8 connected over USB (not needed for a dry run)
-- To build it: Xcode (the command-line tools alone are not enough) and Swift 5.9 or later
+- To build it: Xcode and Swift 5.9 or later (it was built and tested with the full Xcode, not the Command Line Tools alone)
 
 It has been tested on Apple Silicon with an ES-8. There is no prebuilt download, so you build it yourself (below).
 
@@ -28,7 +28,44 @@ The first time you open it, macOS may refuse because the app is not notarised. R
 
 macOS may ask for microphone access. The ES-8 is one audio device with both inputs and outputs, so the system treats opening it as possible recording. CV Matrix only sends voltages and never reads the inputs, so you can allow or deny it.
 
-To run it without building the `.app`, use `swift run` in the project folder.
+To run it without building the `.app`, or if the build fails, see [Build from source](#build-from-source).
+
+## Build from source
+
+1. **Install Xcode** from the App Store (it was built and tested with the full Xcode, not the Command Line Tools alone), open it once so it finishes installing components, and accept the license if asked:
+
+        sudo xcodebuild -license accept
+
+2. **Check the toolchain** points at the full Xcode and that Swift works:
+
+        xcode-select -p        # should print /Applications/Xcode.app/Contents/Developer
+        swift --version
+
+   If `xcode-select -p` shows `/Library/Developer/CommandLineTools`, switch it:
+
+        sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+
+3. **Get the code:**
+
+        git clone https://github.com/boocup/cv-matrix.git
+        cd cv-matrix
+
+4. **Build and run it**, either way:
+
+        swift run                 # debug build, starts the app straight away
+        ./scripts/make-app.sh     # release build, makes dist/CVMatrix.app
+
+   `make-app.sh` builds in release mode, draws the icon, writes the `Info.plist`, and signs the app ad hoc. It needs only Xcode and the tools that ship with macOS (`swift`, `sips`, `iconutil`, `codesign`). The result is `dist/CVMatrix.app`; the `dist/` folder is not committed.
+
+Other commands:
+
+    swift build               # compile only (debug)
+    swift build -c release    # compile only (release)
+    rm -rf .build dist        # clean everything built
+
+The project is a Swift package (`Package.swift`) with no third-party dependencies, so there is nothing to download besides the code. There is no Xcode project file; to work on it in Xcode, open the folder (File > Open) and Xcode will use the package.
+
+If the build fails, the usual causes are an older Xcode than macOS 14 supports, or the toolchain still pointing at the Command Line Tools (step 2).
 
 ## First run: do this before patching it into anything
 
