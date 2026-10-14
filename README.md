@@ -138,8 +138,6 @@ The grid is a small JSON file:
 - **Save grid...** saves a copy of the current grid wherever you choose.
 - **Autosave** is a switch, off at every launch. When ticked, the current grid is written as you edit, to `~/Library/Application Support/CVMatrix/matrix_grid.json`, and that file is what the app opens at launch. With it off, your edits are lost when you quit unless you used Save grid.
 
-The file format is the same as the Python prototype's, which is kept in [`reference/`](reference/) for comparison.
-
 ## Safety and limits
 
 - Every output is capped at **+-5 V** in the code, whatever the grid says.
@@ -163,11 +161,9 @@ The file format is the same as the Python prototype's, which is kept in [`refere
     scripts/
       make-app.sh         builds dist/CVMatrix.app
       make-icon.swift     draws the app icon
-    reference/            the Python prototype this was ported from
 
 ## Not yet done
 
-- Loading and exporting `pieces/*.json` files for the Python tools
 - A separate glide speed per output, so every output takes the full glide time
 
 ## License
