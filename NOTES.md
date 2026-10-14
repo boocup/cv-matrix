@@ -7,7 +7,7 @@ Steps 1-3 of `swift-matrix-plan.md` are done and pushed (last commit `1c2f557`).
 - Play/Stop with progress bar and live voltage readout under each "Out n".
 - "Send to ES-8" switch (ON at every launch, untick for a dry run). On: Core Audio output on ES-8 outs 1-8, +-5 V cap, shared-slew glide, glide to 0 V on Stop and on quit.
 - "Load grid..." loads a matrix_grid.json (pulled forward from step 5). Grid file: `~/Library/Application Support/CVMatrix/matrix_grid.json`.
-- Run it: `swift run` from this folder. Quit with Cmd-Q (glides to 0 V first).
+- Run it: `swift run` from this folder, or `./scripts/make-app.sh` for `dist/CVMatrix.app`. Quit with Cmd-Q (glides to 0 V first).
 
 ## Step 4 (built, awaiting your test)
 - Jump to a row while playing (click the row number).

@@ -8,6 +8,8 @@ Chapters run down the left. Each row has eight knobs (ES-8 outputs 1-8, -5 to +5
 
     swift run
 
+Or build a double-click app: `./scripts/make-app.sh` makes `dist/CVMatrix.app` (release build, icon, ad-hoc signed). Drag it into /Applications. The first launch may need a right-click, Open.
+
 Needs macOS 14 or later and Xcode. "Send to ES-8" is on at launch; untick it for a dry run that only shows the computed voltages.
 
 ## Use

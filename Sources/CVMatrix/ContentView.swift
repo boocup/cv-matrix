@@ -8,8 +8,6 @@ struct ContentView: View {
     @Bindable var store: MatrixStore
     @Bindable var player: Player
     @State private var window: NSWindow?
-    @State private var contentSize = CGSize.zero    // all rows, as laid out
-    @State private var viewportSize = CGSize.zero   // the part of the window the rows are shown in
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -66,11 +64,7 @@ struct ContentView: View {
                     Button("+ Add row") { store.addRow() }
                 }
                 .padding(.bottom, 8)
-                .background(GeometryReader { g in Color.clear.preference(key: ContentSizeKey.self, value: g.size) })
             }
-            .background(GeometryReader { g in Color.clear.preference(key: ViewportSizeKey.self, value: g.size) })
-            .onPreferenceChange(ContentSizeKey.self) { contentSize = $0 }
-            .onPreferenceChange(ViewportSizeKey.self) { viewportSize = $0 }
 
             Text("Drag a knob up or down (hold Shift for fine steps). Double-click a knob for 0 V. Click a row number to play from that row (or jump to it while playing). Time is the whole row in seconds; glide is the part of it spent moving from the previous row. All knobs run -5 to +5 V.")
                 .font(.caption).foregroundStyle(.secondary)
@@ -94,7 +88,10 @@ struct ContentView: View {
     private func fitWindowSoon() {
         Task { @MainActor in
             try? await Task.sleep(nanoseconds: 300_000_000)   // let the first layout happen
-            guard let window, contentSize.width > 0, viewportSize.width > 0, let screen = window.screen ?? NSScreen.main else { return }
+            guard let window, let screen = window.screen ?? NSScreen.main, let root = window.contentView,
+                  let scroll = Self.findScrollView(in: root), let document = scroll.documentView else { return }
+            let contentSize = document.frame.size       // all rows, as laid out
+            let viewportSize = scroll.contentSize       // the part of the window the rows are shown in
             let content = window.contentLayoutRect.size
             let wanted = NSSize(width: contentSize.width + (content.width - viewportSize.width),
                                 height: contentSize.height + (content.height - viewportSize.height))
@@ -119,6 +116,12 @@ struct ContentView: View {
         } catch {
             store.message = "could not save \(url.lastPathComponent): \(error.localizedDescription)"
         }
+    }
+
+    private static func findScrollView(in view: NSView) -> NSScrollView? {
+        if let scroll = view as? NSScrollView { return scroll }
+        for sub in view.subviews { if let found = findScrollView(in: sub) { return found } }
+        return nil
     }
 
     private func loadGrid() {
@@ -253,16 +256,6 @@ extension View {
     func escapeLeavesField() -> some View {
         onExitCommand { NSApp.keyWindow?.makeFirstResponder(nil) }
     }
-}
-
-private struct ContentSizeKey: PreferenceKey {
-    static let defaultValue = CGSize.zero
-    static func reduce(value: inout CGSize, nextValue: () -> CGSize) { value = nextValue() }
-}
-
-private struct ViewportSizeKey: PreferenceKey {
-    static let defaultValue = CGSize.zero
-    static func reduce(value: inout CGSize, nextValue: () -> CGSize) { value = nextValue() }
 }
 
 /// Hands the hosting NSWindow to SwiftUI.
