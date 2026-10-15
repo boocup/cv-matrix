@@ -84,6 +84,7 @@ Full scale (+-1.0 in the audio stream) is assumed to be about +-10 V on the jack
 | Change a voltage | Drag a knob up or down (200 px is the full 10 V) |
 | Fine adjust | Hold **Shift** while dragging (ten times finer) |
 | Set a knob to 0 V | Double-click it |
+| Shift Out 5 or 6 by an interval | Pick it from the menu: None, major 3rd, 4th, 5th or octave (1 V/oct, upward). Custom lets you type any voltage |
 | Play from a row | Click its round number badge |
 | Jump to another row while playing | Click that row's badge |
 | Stop | Press **Stop**; every output glides to 0 V |

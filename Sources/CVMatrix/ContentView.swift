@@ -268,7 +268,11 @@ struct RowView: View {
             TextField("", value: timeBinding, format: numberFormat).frame(width: 66).escapeLeavesField()
             TextField("", value: glideBinding, format: numberFormat).frame(width: 66).escapeLeavesField()
             ForEach(0..<outputs, id: \.self) { k in
-                KnobView(value: $row.values[k])
+                if k == 4 || k == 5 {                        // Out 5 and 6 pick a pitch-shift interval
+                    IntervalPicker(value: $row.values[k])
+                } else {
+                    KnobView(value: $row.values[k])
+                }
             }
             HStack(spacing: 4) {
                 Button("⧉", action: onDuplicate).help("Duplicate")
