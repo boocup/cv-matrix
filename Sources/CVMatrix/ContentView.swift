@@ -47,6 +47,8 @@ struct ContentView: View {
                 Button("✦ Generate with Claude…") { showPrompt = true }
                     .disabled(generator.running)
                     .help("Opens a window for your direction, then runs chapters.py from your ambient-agent folder with the Claude backend: a few cents per run, uses your ANTHROPIC_API_KEY. The new grid is loaded but not played.")
+                Button("Show generated files") { showGeneratedFolder() }
+                    .help("Opens the folder where Generate with Claude saves its grids, in Finder")
                 if generator.running {
                     ProgressView().controlSize(.small)
                     Text(generator.progress).foregroundStyle(.secondary)
@@ -144,6 +146,11 @@ struct ContentView: View {
         if let scroll = view as? NSScrollView { return scroll }
         for sub in view.subviews { if let found = findScrollView(in: sub) { return found } }
         return nil
+    }
+
+    private func showGeneratedFolder() {
+        try? FileManager.default.createDirectory(at: MatrixStore.generatedDir, withIntermediateDirectories: true)
+        NSWorkspace.shared.open(MatrixStore.generatedDir)
     }
 
     private func generate() {
