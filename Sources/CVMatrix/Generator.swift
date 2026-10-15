@@ -51,7 +51,7 @@ final class Generator {
         "'" + s.replacingOccurrences(of: "'", with: "'\\''") + "'"
     }
 
-    func start(chapters: Int, agentFolder: URL, outputDir: URL, done: @escaping (URL) -> Void) {
+    func start(chapters: Int, voices: Int, brief: String, agentFolder: URL, outputDir: URL, done: @escaping (URL) -> Void) {
         guard !running else { return }
         running = true
         cancelled = false
@@ -59,8 +59,10 @@ final class Generator {
         error = ""
         try? FileManager.default.createDirectory(at: outputDir, withIntermediateDirectories: true)
 
+        let trimmed = brief.split(whereSeparator: \.isWhitespace).joined(separator: " ")
+        let briefArg = trimmed.isEmpty ? "" : " --brief \(Self.quoted(String(trimmed.prefix(1500))))"
         let command = "cd \(Self.quoted(agentFolder.path)) && PY=.venv/bin/python; [ -x \"$PY\" ] || PY=python3; "
-            + "exec \"$PY\" -u chapters.py --backend claude --chapters \(chapters) --write-grid-dir \(Self.quoted(outputDir.path))"
+            + "exec \"$PY\" -u chapters.py --backend claude --chapters \(chapters) --voices \(voices)\(briefArg) --write-grid-dir \(Self.quoted(outputDir.path))"
         let box = Output()
         let spawned: (pid: pid_t, out: FileHandle, err: FileHandle)
         do {

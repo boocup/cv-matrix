@@ -9,6 +9,9 @@ struct ContentView: View {
     @Bindable var player: Player
     @State private var generator = Generator()
     @AppStorage("generateChapters") private var generateChapters = 6
+    @AppStorage("generateBrief") private var generateBrief = ""
+    @AppStorage("generateVoices") private var generateVoices = 4
+    @State private var showPrompt = false
     @State private var window: NSWindow?
 
     var body: some View {
@@ -41,11 +44,9 @@ struct ContentView: View {
             Text((player.sendToES8 ? "Sending to the ES-8. " : "Dry run: nothing is sent. ") + statusText)
                 .foregroundStyle(player.sendToES8 ? Color.orange : .secondary)
             HStack(spacing: 10) {
-                Button("✦ Generate with Claude", action: generate)
+                Button("✦ Generate with Claude…") { showPrompt = true }
                     .disabled(generator.running)
-                    .help("Runs chapters.py from your ambient-agent folder with the Claude backend: a few cents per click, uses your ANTHROPIC_API_KEY. The new grid is loaded but not played.")
-                Stepper("Chapters: \(generateChapters)", value: $generateChapters, in: 1...12)
-                    .disabled(generator.running)
+                    .help("Opens a window for your direction, then runs chapters.py from your ambient-agent folder with the Claude backend: a few cents per run, uses your ANTHROPIC_API_KEY. The new grid is loaded but not played.")
                 if generator.running {
                     ProgressView().controlSize(.small)
                     Text(generator.progress).foregroundStyle(.secondary)
@@ -90,6 +91,12 @@ struct ContentView: View {
             Color.clear.contentShape(Rectangle())
                 .onTapGesture { NSApp.keyWindow?.makeFirstResponder(nil) }   // click empty space: leave the text field
         )
+        .sheet(isPresented: $showPrompt) {
+            PromptSheet(brief: $generateBrief, voices: $generateVoices, chapters: $generateChapters) {
+                showPrompt = false
+                generate()
+            }
+        }
         .background(WindowAccessor { window = $0 })
         .onAppear { fitWindowSoon() }
         .onChange(of: store.autosave) { _, on in if on { store.scheduleSave() } }
@@ -141,7 +148,7 @@ struct ContentView: View {
 
     private func generate() {
         if !store.agentFolderValid && !store.chooseAgentFolder() { return }
-        generator.start(chapters: generateChapters, agentFolder: store.agentFolder, outputDir: MatrixStore.generatedDir) { url in
+        generator.start(chapters: generateChapters, voices: generateVoices, brief: generateBrief, agentFolder: store.agentFolder, outputDir: MatrixStore.generatedDir) { url in
             receiveGenerated(url)
         }
     }
@@ -349,5 +356,42 @@ struct RowNumber: View {
         .help("Play from row \(number)")
         .accessibilityLabel("Play from row \(number)")
         .accessibilityAddTraits(.isButton)
+    }
+}
+
+/// The window that asks what to tell Claude before a piece is generated.
+struct PromptSheet: View {
+    @Binding var brief: String
+    @Binding var voices: Int
+    @Binding var chapters: Int
+    let onGenerate: () -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Generate with Claude").font(.title3.bold())
+            Text("Describe your voices and what you want, in your own words. Leave it empty for the built-in four-voice setup. Voice 1 goes to Out 1, voice 2 to Out 2, and so on; unused outputs stay at 0 V.")
+                .font(.callout).foregroundStyle(.secondary)
+            TextEditor(text: $brief)
+                .font(.body)
+                .frame(minHeight: 150)
+                .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.secondary.opacity(0.4)))
+            Text("For example: Voice 1 and 2 are similar, voice 2 repeats note one. Voice 3 is a tape delay loop of voice 1 with overdub. Sparse and dark please.")
+                .font(.caption).foregroundStyle(.secondary)
+            HStack(spacing: 24) {
+                Stepper("Voices: \(voices)", value: $voices, in: 1...8)
+                Stepper("Chapters: \(chapters)", value: $chapters, in: 1...12)
+            }
+            Text("One Claude request per chapter, a few cents in total. The piece is loaded when it is ready, and not played.")
+                .font(.caption).foregroundStyle(.secondary)
+            HStack {
+                Spacer()
+                Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
+                Button("Generate", action: onGenerate).keyboardShortcut(.return, modifiers: .command)
+                    .buttonStyle(.borderedProminent)
+            }
+        }
+        .padding(20)
+        .frame(width: 540)
     }
 }
