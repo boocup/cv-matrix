@@ -98,7 +98,10 @@ Each row has:
 - **Chapter**: a name, up to 40 characters.
 - **Time**: how long the row lasts, in seconds (1 to 3600).
 - **Glide**: how many of those seconds are spent moving from the previous row's voltages to this row's. It can't be longer than the time.
-- **Out 1 to Out 8**: the eight knobs, -5 to +5 V.
+- **Out 1 to Out 4**: knobs, -5 to +5 V.
+- **Out 5 and Out 6**: pitch-shift menus (None, major 3rd, 4th, 5th, octave, or Custom).
+- **Out 7**: a gate menu (Low or High).
+- **Out 8**: a trigger menu (None, At start, After glide).
 
 Along the top:
 
