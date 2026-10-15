@@ -12,6 +12,7 @@ struct ContentView: View {
     @AppStorage("generateBrief") private var generateBrief = ""
     @AppStorage("generateVoices") private var generateVoices = 4
     @State private var showPrompt = false
+    @State private var clearedInitialFocus = false
     @State private var window: NSWindow?
 
     var body: some View {
@@ -99,7 +100,13 @@ struct ContentView: View {
                 generate()
             }
         }
-        .background(WindowAccessor { window = $0 })
+        .background(WindowAccessor { w in
+            window = w
+            if !clearedInitialFocus {                                  // AppKit gives the first text box (Speed) focus at launch
+                clearedInitialFocus = true
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { w.makeFirstResponder(nil) }
+            }
+        })
         .onAppear { fitWindowSoon() }
         .onChange(of: store.autosave) { _, on in if on { store.scheduleSave() } }
         .onChange(of: store.grid) { _, _ in
