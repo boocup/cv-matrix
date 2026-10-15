@@ -7,6 +7,8 @@ private let numberFormat: FloatingPointFormatStyle<Double> = .number.precision(.
 struct ContentView: View {
     @Bindable var store: MatrixStore
     @Bindable var player: Player
+    @State private var generator = Generator()
+    @AppStorage("generateChapters") private var generateChapters = 6
     @State private var window: NSWindow?
 
     var body: some View {
@@ -38,6 +40,19 @@ struct ContentView: View {
             }
             Text((player.sendToES8 ? "Sending to the ES-8. " : "Dry run: nothing is sent. ") + statusText)
                 .foregroundStyle(player.sendToES8 ? Color.orange : .secondary)
+            HStack(spacing: 10) {
+                Button("✦ Generate with Claude", action: generate)
+                    .disabled(generator.running)
+                    .help("Runs chapters.py from your ambient-agent folder with the Claude backend: a few cents per click, uses your ANTHROPIC_API_KEY. The new grid is loaded but not played.")
+                Stepper("Chapters: \(generateChapters)", value: $generateChapters, in: 1...12)
+                    .disabled(generator.running)
+                if generator.running {
+                    ProgressView().controlSize(.small)
+                    Text(generator.progress).foregroundStyle(.secondary)
+                    Button("Cancel") { generator.cancel() }
+                }
+                if !generator.error.isEmpty { Text(generator.error).foregroundStyle(.red) }
+            }
             if !player.message.isEmpty {
                 Text(player.message).foregroundStyle(.red)
             }
@@ -122,6 +137,38 @@ struct ContentView: View {
         if let scroll = view as? NSScrollView { return scroll }
         for sub in view.subviews { if let found = findScrollView(in: sub) { return found } }
         return nil
+    }
+
+    private func generate() {
+        if !store.agentFolderValid && !store.chooseAgentFolder() { return }
+        generator.start(chapters: generateChapters, agentFolder: store.agentFolder, outputDir: MatrixStore.generatedDir) { url in
+            receiveGenerated(url)
+        }
+    }
+
+    /// A new grid arrived. Loading stops playback and replaces the grid, so ask first if either would lose something.
+    private func receiveGenerated(_ url: URL) {
+        if player.playing || store.dirty {
+            let alert = NSAlert()
+            alert.messageText = "Claude's new piece is ready: \(url.deletingPathExtension().lastPathComponent)"
+            alert.informativeText = (player.playing ? "Loading it stops the music now playing. " : "")
+                + (store.dirty ? "Your current grid has edits that are not saved. " : "")
+                + "The new piece is saved in \(MatrixStore.generatedDir.path) either way."
+            alert.addButton(withTitle: "Load now")
+            alert.addButton(withTitle: "Keep current grid")
+            guard alert.runModal() == .alertFirstButtonReturn else {
+                store.message = "New piece saved as \(url.lastPathComponent); use Load grid… to open it."
+                return
+            }
+        }
+        player.stop()
+        do {
+            try store.load(from: url)
+            store.message = "Loaded \(url.lastPathComponent) from Claude. Press Play when you are ready."
+            fitWindowSoon()
+        } catch {
+            store.message = "could not load \(url.lastPathComponent): \(error.localizedDescription)"
+        }
     }
 
     private func loadGrid() {

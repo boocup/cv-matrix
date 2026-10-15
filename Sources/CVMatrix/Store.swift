@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import Observation
 
@@ -7,6 +8,8 @@ final class MatrixStore {
     var grid: Grid
     var selected = 0
     var message = ""
+    private(set) var baseline: Grid  // the grid as last loaded or saved, to tell whether there are unsaved edits
+    var dirty: Bool { grid != baseline }
     var autosave = false             // off at every launch: edits are not written to disk unless this is ticked
 
     @ObservationIgnored private var saveTask: Task<Void, Never>?
@@ -20,18 +23,55 @@ final class MatrixStore {
     }()
 
     init() {
-        grid = Grid.blank()
-        guard FileManager.default.fileExists(atPath: Self.fileURL.path) else { return }
-        do {
-            grid = try JSONDecoder().decode(Grid.self, from: Data(contentsOf: Self.fileURL))
-        } catch {
-            message = "matrix_grid.json could not be read; started with a blank grid"
+        var initial = Grid.blank()
+        var note = ""
+        if FileManager.default.fileExists(atPath: Self.fileURL.path) {
+            do {
+                initial = try JSONDecoder().decode(Grid.self, from: Data(contentsOf: Self.fileURL))
+            } catch {
+                note = "matrix_grid.json could not be read; started with a blank grid"
+            }
         }
+        grid = initial
+        baseline = initial
+        message = note
     }
+
+    /// ambient-agent checkout used by Generate with Claude (chosen once, remembered).
+    static let agentFolderKey = "agentFolder"
+
+    var agentFolder: URL {
+        if let saved = UserDefaults.standard.string(forKey: Self.agentFolderKey) { return URL(fileURLWithPath: saved) }
+        return FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("vcv-dev/ambient-agent")
+    }
+
+    var agentFolderValid: Bool {
+        FileManager.default.fileExists(atPath: agentFolder.appendingPathComponent("chapters.py").path)
+    }
+
+    /// Ask for the ambient-agent folder. Returns false if cancelled or the folder has no chapters.py.
+    @discardableResult
+    func chooseAgentFolder() -> Bool {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.message = "Choose your ambient-agent folder (the one with chapters.py)"
+        guard panel.runModal() == .OK, let url = panel.url else { return false }
+        guard FileManager.default.fileExists(atPath: url.appendingPathComponent("chapters.py").path) else {
+            message = "\(url.lastPathComponent) has no chapters.py"
+            return false
+        }
+        UserDefaults.standard.set(url.path, forKey: Self.agentFolderKey)
+        return true
+    }
+
+    /// Where Generate with Claude puts its grid files.
+    static let generatedDir: URL = fileURL.deletingLastPathComponent().appendingPathComponent("generated", isDirectory: true)
 
     /// Replace the grid with a matrix_grid.json from anywhere. Throws if the file is not a grid.
     func load(from url: URL) throws {
         grid = try JSONDecoder().decode(Grid.self, from: Data(contentsOf: url))
+        baseline = grid
         selected = 0
         message = ""
     }
@@ -62,6 +102,7 @@ final class MatrixStore {
     /// Save a copy of the grid wherever the user chooses (matrix_grid.json format).
     func save(to url: URL) throws {
         try Self.write(grid, to: url)
+        baseline = grid
     }
 
     /// Called after every change; writes the file 250 ms after the last one.
@@ -74,6 +115,7 @@ final class MatrixStore {
             guard !Task.isCancelled else { return }
             do {
                 try Self.write(grid, to: Self.fileURL)
+                self.baseline = grid
             } catch {
                 self.message = "could not save: \(error.localizedDescription)"
             }

@@ -4,7 +4,7 @@
 
 A small Mac app that turns an Expert Sleepers **ES-8** into eight slowly moving control voltages for a modular rack.
 
-You write a piece as a list of **chapters** (rows). Each row holds eight voltages (one per ES-8 output, -5 to +5 V), how long the row lasts, and how much of that time is spent gliding in from the previous row. Press play and the rows run top to bottom, optionally looping. The outputs never jump: every change is a glide. It runs fully offline and sends nothing anywhere except the ES-8.
+You write a piece as a list of **chapters** (rows). Each row holds eight voltages (one per ES-8 output, -5 to +5 V), how long the row lasts, and how much of that time is spent gliding in from the previous row. Press play and the rows run top to bottom, optionally looping. The outputs never jump: every change is a glide. On its own it runs fully offline and sends nothing anywhere except the ES-8. An optional button can ask Claude to write a new piece (see [Generate with Claude](#generate-with-claude-optional)).
 
 It is made for long, evolving pieces: level or rate CVs, slow offsets, crossfades, anything that should drift over minutes rather than steps.
 
@@ -111,6 +111,28 @@ If you change a knob on the row that is playing, that output follows it with a h
 
 The window sizes itself to show every row when it opens (up to the size of your screen).
 
+## Generate with Claude (optional)
+
+The **Generate with Claude** button asks Claude to write a new piece and loads it. It is optional: without it, the app never touches the network.
+
+It works by running `chapters.py` from your own copy of [ambient-agent](https://github.com/boocup/ambient-agent) with the Claude backend. The app itself makes no network call and never sees your API key. The script runs in a login shell, so it picks up `ANTHROPIC_API_KEY` from your shell setup, and the key stays inside that process.
+
+You need:
+
+- an ambient-agent checkout with its `.venv` set up (see its README), at `~/vcv-dev/ambient-agent` or anywhere else you point the app at with **CV Matrix > Choose ambient-agent Folder...** (it is remembered)
+- `ANTHROPIC_API_KEY` exported in your shell (for example in `~/.zshrc`)
+- a recent ambient-agent: `chapters.py` needs its `--write-grid-dir` option
+
+How it goes:
+
+1. Set the number of chapters (1 to 12) and click the button. Claude writes the chapters one after another, and the window shows which one it is on. **Cancel** stops it.
+2. Each run costs a few cents of API credit (one request per chapter).
+3. The new piece is saved as a grid file, named after its first chapter, in `~/Library/Application Support/CVMatrix/generated/`. Existing files are never overwritten.
+4. The app loads it and selects row 1. **It does not start playing.** Press Play when you are ready.
+5. If something would be lost by loading (music is playing, or the current grid has edits you haven't saved), the app asks first. The new file is saved either way.
+
+Levels 0 to 1 from the script become 0 to 5 V on Out 1 to 4; Out 5 to 8 start at 0 V.
+
 ## How the glide works
 
 When a row starts, the largest voltage change across the eight outputs takes exactly the glide time. Outputs with smaller changes get there sooner and then wait. All eight share one speed in volts per second. Very short glides are treated as at least 0.2 s so an output never snaps.
@@ -158,6 +180,7 @@ The grid is a small JSON file:
       Store.swift         the grid, loading, saving
       Player.swift        play logic and glides
       ES8Output.swift     Core Audio output to the ES-8
+      Generator.swift     runs ambient-agent's chapters.py for Generate with Claude
     scripts/
       make-app.sh         builds dist/CVMatrix.app
       make-icon.swift     draws the app icon
