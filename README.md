@@ -127,7 +127,7 @@ How it goes:
 
 1. Set the number of chapters (1 to 12) and click the button. Claude writes the chapters one after another, and the window shows which one it is on. **Cancel** stops it.
 2. Each run costs a few cents of API credit (one request per chapter).
-3. The new piece is saved as a grid file, named after its first chapter, in `~/Library/Application Support/CVMatrix/generated/`. Existing files are never overwritten.
+3. The new piece is saved as a grid file, named by date, time and its first chapter (for example `2026-10-15-0942-quiet-dawn-emergence.json`), in `~/Library/Application Support/CVMatrix/generated/`. Existing files are never overwritten.
 4. The app loads it and selects row 1. **It does not start playing.** Press Play when you are ready.
 5. If something would be lost by loading (music is playing, or the current grid has edits you haven't saved), the app asks first. The new file is saved either way.
 
