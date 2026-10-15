@@ -140,6 +140,7 @@ struct ContentView: View {
         panel.allowedContentTypes = [.json]
         panel.nameFieldStringValue = "matrix_grid.json"
         panel.message = "Save a copy of the grid"
+        panel.directoryURL = MatrixStore.gridsDirForPanel()
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
             try store.save(to: url)
@@ -197,6 +198,7 @@ struct ContentView: View {
         panel.allowedContentTypes = [.json]
         panel.allowsMultipleSelection = false
         panel.message = "Choose a matrix_grid.json"
+        panel.directoryURL = MatrixStore.gridsDirForPanel()
         guard panel.runModal() == .OK, let url = panel.url else { return }
         let alert = NSAlert()
         alert.messageText = "Replace the current grid with \(url.lastPathComponent)?"

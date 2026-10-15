@@ -65,8 +65,18 @@ final class MatrixStore {
         return true
     }
 
-    /// Where Generate with Claude puts its grid files.
-    static let generatedDir: URL = fileURL.deletingLastPathComponent().appendingPathComponent("generated", isDirectory: true)
+    /// ~/Documents/CV Matrix: where Save grid..., Load grid... and Generate with Claude keep grid files, so they are all in one
+    /// place you can see in Finder. (The autosave file stays in Application Support; it is the app's own copy.)
+    static let gridsDir: URL = FileManager.default.homeDirectoryForCurrentUser
+        .appendingPathComponent("Documents/CV Matrix", isDirectory: true)
+
+    static var generatedDir: URL { gridsDir }
+
+    /// The grids folder, created if needed, for a file panel to start in.
+    static func gridsDirForPanel() -> URL {
+        try? FileManager.default.createDirectory(at: gridsDir, withIntermediateDirectories: true)
+        return gridsDir
+    }
 
     /// Replace the grid with a matrix_grid.json from anywhere. Throws if the file is not a grid.
     func load(from url: URL) throws {
