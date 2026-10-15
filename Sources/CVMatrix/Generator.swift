@@ -11,7 +11,7 @@ final class Generator {
     private(set) var progress = ""
     private(set) var error = ""
 
-    @ObservationIgnored private var process: Process?
+    @ObservationIgnored private var pid: pid_t = 0
     @ObservationIgnored private var cancelled = false
 
     /// Collects the script's output off the main thread.
@@ -61,56 +61,89 @@ final class Generator {
 
         let command = "cd \(Self.quoted(agentFolder.path)) && PY=.venv/bin/python; [ -x \"$PY\" ] || PY=python3; "
             + "exec \"$PY\" -u chapters.py --backend claude --chapters \(chapters) --write-grid-dir \(Self.quoted(outputDir.path))"
-        // A login, interactive shell, so ANTHROPIC_API_KEY from the user's shell setup (.zshrc) is there. Started from a
-        // terminal (swift run) an interactive shell would try to use that terminal and be suspended (state T), so first
-        // start a new session, which has no controlling terminal.
-        let p = Process()
-        p.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
-        p.arguments = ["-c", "import os,sys; os.setsid(); os.execv('/bin/zsh', ['zsh', '-lic', sys.argv[1]])", command]
-        p.standardInput = FileHandle.nullDevice
-        let out = Pipe(), err = Pipe()
-        p.standardOutput = out
-        p.standardError = err
         let box = Output()
+        let spawned: (pid: pid_t, out: FileHandle, err: FileHandle)
+        do {
+            spawned = try Self.spawnShell(command)
+        } catch {
+            running = false
+            self.error = "could not start the script: \(error.localizedDescription)"
+            return
+        }
+        pid = spawned.pid
+        let (out, err) = (spawned.out, spawned.err)
 
-        out.fileHandleForReading.readabilityHandler = { [weak self] handle in
+        out.readabilityHandler = { [weak self] handle in
             let data = handle.availableData
             guard !data.isEmpty else { return }
             let lines = box.addOut(data)
             Task { @MainActor in lines.forEach { self?.note($0) } }
         }
-        err.fileHandleForReading.readabilityHandler = { handle in
+        err.readabilityHandler = { handle in
             let data = handle.availableData
             if !data.isEmpty { box.addErr(data) }
         }
-        p.terminationHandler = { [weak self] proc in
-            out.fileHandleForReading.readabilityHandler = nil
-            err.fileHandleForReading.readabilityHandler = nil
-            let rest = box.addOut(out.fileHandleForReading.readDataToEndOfFile())
-            box.addErr(err.fileHandleForReading.readDataToEndOfFile())
-            let status = proc.terminationStatus
+        let child = spawned.pid
+        Thread.detachNewThread { [weak self] in
+            var raw: Int32 = 0
+            while waitpid(child, &raw, 0) < 0 && errno == EINTR {}
+            out.readabilityHandler = nil
+            err.readabilityHandler = nil
+            let rest = box.addOut(out.readDataToEndOfFile())
+            box.addErr(err.readDataToEndOfFile())
+            let status: Int32 = (raw & 0x7f) == 0 ? (raw >> 8) & 0xff : 128 + (raw & 0x7f)   // exit code, or 128 + signal
             Task { @MainActor in
                 rest.forEach { self?.note($0) }
                 self?.finish(status: status, gridFile: box.gridFile, errorTail: box.errorTail, done: done)
             }
         }
-        do {
-            try p.run()
-            process = p
-        } catch {
-            running = false
-            self.error = "could not start the script: \(error.localizedDescription)"
+    }
+
+    /// Start `/bin/zsh -lic command` in a NEW SESSION (no controlling terminal). A login, interactive shell is what
+    /// brings in ANTHROPIC_API_KEY from the user's .zshrc; started from a terminal (swift run) without a new session it
+    /// would try to use that terminal and be suspended.
+    private static func spawnShell(_ command: String) throws -> (pid: pid_t, out: FileHandle, err: FileHandle) {
+        var outPipe: [Int32] = [0, 0], errPipe: [Int32] = [0, 0]
+        guard pipe(&outPipe) == 0, pipe(&errPipe) == 0 else { throw POSIXError(.EMFILE) }
+
+        var actions: posix_spawn_file_actions_t?
+        posix_spawn_file_actions_init(&actions)
+        defer { posix_spawn_file_actions_destroy(&actions) }
+        posix_spawn_file_actions_addopen(&actions, 0, "/dev/null", O_RDONLY, 0)
+        posix_spawn_file_actions_adddup2(&actions, outPipe[1], 1)
+        posix_spawn_file_actions_adddup2(&actions, errPipe[1], 2)
+        for fd in outPipe + errPipe { posix_spawn_file_actions_addclose(&actions, fd) }
+
+        var attr: posix_spawnattr_t?
+        posix_spawnattr_init(&attr)
+        defer { posix_spawnattr_destroy(&attr) }
+        posix_spawnattr_setflags(&attr, Int16(POSIX_SPAWN_SETSID))
+
+        let args = ["zsh", "-lic", command]
+        let env = ProcessInfo.processInfo.environment.map { "\($0.key)=\($0.value)" }
+        let argv: [UnsafeMutablePointer<CChar>?] = args.map { strdup($0) } + [nil]
+        let envp: [UnsafeMutablePointer<CChar>?] = env.map { strdup($0) } + [nil]
+        defer { argv.forEach { free($0) }; envp.forEach { free($0) } }
+
+        var pid: pid_t = 0
+        let rc = posix_spawn(&pid, "/bin/zsh", &actions, &attr, argv, envp)
+        close(outPipe[1]); close(errPipe[1])
+        guard rc == 0 else {
+            close(outPipe[0]); close(errPipe[0])
+            throw POSIXError(POSIXErrorCode(rawValue: rc) ?? .EPERM)
         }
+        return (pid, FileHandle(fileDescriptor: outPipe[0], closeOnDealloc: true),
+                FileHandle(fileDescriptor: errPipe[0], closeOnDealloc: true))
     }
 
     func cancel() {
         cancelled = true
-        guard let p = process else { return }
-        p.terminate()
-        // A suspended process only acts on SIGTERM once resumed; make sure it really goes.
+        guard pid > 0 else { return }
+        let target = pid
+        kill(-target, SIGTERM)                    // the whole session, in case the script started anything
         Task {
             try? await Task.sleep(nanoseconds: 1_500_000_000)
-            if p.isRunning { kill(p.processIdentifier, SIGKILL) }
+            if self.pid == target { kill(-target, SIGKILL) }     // still there (e.g. suspended)
         }
     }
 
@@ -124,7 +157,7 @@ final class Generator {
 
     private func finish(status: Int32, gridFile: String?, errorTail: String, done: (URL) -> Void) {
         running = false
-        process = nil
+        pid = 0
         progress = ""
         if cancelled { return }
         if status == 0, let gridFile, FileManager.default.fileExists(atPath: gridFile) {
