@@ -3,6 +3,24 @@ import Foundation
 let outputs = 8
 let maxVolts = 5.0
 
+// Out 7 is a gate (Low 0 V / High +5 V, snaps) and Out 8 is a trigger (a short +5 V pulse). The only outputs that jump.
+let gateOutput = 6
+let trigOutput = 7
+let gateVolts = 5.0
+let trigSeconds = 0.02
+
+/// When Out 8 fires its trigger for a row.
+enum Trig: String, Codable, CaseIterable {
+    case none, start, after
+    var label: String {
+        switch self {
+        case .none: return "None"
+        case .start: return "At start"
+        case .after: return "After glide"
+        }
+    }
+}
+
 func clamp(_ x: Double, _ lo: Double, _ hi: Double) -> Double { max(lo, min(hi, x)) }
 
 /// One chapter. `id` is only for SwiftUI; it is not written to the file.
@@ -12,8 +30,9 @@ struct Row: Identifiable, Equatable, Codable {
     var time: Double
     var glide: Double
     var values: [Double]
+    var trig = Trig.none      // Out 8: not part of `values`; only written to the file when it is not .none
 
-    enum CodingKeys: String, CodingKey { case name, time, glide, values }
+    enum CodingKeys: String, CodingKey { case name, time, glide, values, trig }
 
     init(name: String, time: Double = 60, glide: Double = 10, values: [Double] = []) {
         self.name = name
@@ -29,7 +48,17 @@ struct Row: Identifiable, Equatable, Codable {
         time = try c.decodeIfPresent(Double.self, forKey: .time) ?? 60
         glide = try c.decodeIfPresent(Double.self, forKey: .glide) ?? 10
         values = try c.decodeIfPresent([Double].self, forKey: .values) ?? []
+        trig = (try? c.decodeIfPresent(Trig.self, forKey: .trig)) ?? .none
         clean()
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(name, forKey: .name)
+        try c.encode(time, forKey: .time)
+        try c.encode(glide, forKey: .glide)
+        try c.encode(values, forKey: .values)
+        if trig != .none { try c.encode(trig, forKey: .trig) }
     }
 
     /// Same limits as the Python clean_row.

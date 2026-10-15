@@ -269,7 +269,11 @@ struct RowView: View {
             TextField("", value: glideBinding, format: numberFormat).frame(width: 66).escapeLeavesField()
             ForEach(0..<outputs, id: \.self) { k in
                 if k == 4 || k == 5 {                        // Out 5 and 6 pick a pitch-shift interval
-                    IntervalPicker(value: $row.values[k])
+                    intervalPicker($row.values[k])
+                } else if k == gateOutput {                  // Out 7: gate
+                    gatePicker($row.values[k])
+                } else if k == trigOutput {                  // Out 8: trigger
+                    TrigPicker(trig: $row.trig)
                 } else {
                     KnobView(value: $row.values[k])
                 }

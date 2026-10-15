@@ -21,6 +21,10 @@ final class Player {
     @ObservationIgnored private var index = 0
     @ObservationIgnored private var rowStart = 0.0
     @ObservationIgnored private var lastTick = 0.0
+    @ObservationIgnored private var rowTrig = Trig.none          // Out 8 trigger of the row being played
+    @ObservationIgnored private var trigAt = 0.0                  // seconds into the row, for .after
+    @ObservationIgnored private var trigPending = false
+    @ObservationIgnored private var simPulse = false              // dry run: show the trigger for one tick
     @ObservationIgnored private var out: ES8Output?
     @ObservationIgnored private var ticker: Task<Void, Never>?
 
@@ -73,6 +77,7 @@ final class Player {
     func stop() {
         guard playing else { return }
         playing = false
+        trigPending = false
         current = -1
         elapsed = 0
         rowTime = 0
@@ -104,12 +109,22 @@ final class Player {
         elapsed = 0
         rowTime = row.time * grid.speed
         apply(row.values, glide: row.glide * grid.speed)
+        rowTrig = row.trig
+        trigAt = row.glide * grid.speed
+        trigPending = row.trig == .after
+        if row.trig == .start { firePulse() }
+    }
+
+    private func firePulse() {
+        if let out { out.pulse() } else { simPulse = true }
     }
 
     /// Same as Python _apply: the largest change takes `glide` seconds; smaller changes arrive early.
+    /// The gate (Out 7) and the trigger (Out 8) are left out of that: they do not glide.
     private func apply(_ values: [Double], glide: Double) {
         target = values.map { clamp($0, -maxVolts, maxVolts) }
-        let dist = zip(target, volts).map { abs($0 - $1) }.max() ?? 0
+        target[trigOutput] = 0                                       // Out 8 only ever pulses
+        let dist = (0..<outputs).filter { $0 != gateOutput && $0 != trigOutput }.map { abs(target[$0] - volts[$0]) }.max() ?? 0
         slew = dist > 0 ? clamp(dist / max(glide, 0.2), 0.05, 100) : 1
         out?.set(targets: target, slew: slew)
     }
@@ -133,13 +148,20 @@ final class Player {
         if let out {
             volts = out.currentVolts()
         } else {
-            for k in 0..<outputs {
+            for k in 0..<outputs where k != gateOutput && k != trigOutput {
                 let step = slew * dt
                 volts[k] += max(-step, min(step, target[k] - volts[k]))
             }
+            volts[gateOutput] = target[gateOutput]                    // the gate snaps
+            volts[trigOutput] = simPulse ? gateVolts : 0              // the trigger shows for one tick
+            simPulse = false
         }
         if playing {
             elapsed = t - rowStart
+            if trigPending && elapsed >= trigAt {
+                trigPending = false
+                firePulse()
+            }
             if elapsed >= rowTime {
                 index += 1
                 startRow()

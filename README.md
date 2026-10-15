@@ -85,6 +85,8 @@ Full scale (+-1.0 in the audio stream) is assumed to be about +-10 V on the jack
 | Fine adjust | Hold **Shift** while dragging (ten times finer) |
 | Set a knob to 0 V | Double-click it |
 | Shift Out 5 or 6 by an interval | Pick it from the menu: None, major 3rd, 4th, 5th or octave (1 V/oct, upward). Custom lets you type any voltage |
+| Gate on Out 7 | Pick Low (0 V) or High (+5 V) from the menu. It is held for the whole row and snaps, with no glide |
+| Trigger on Out 8 | Pick None, At start or After glide. It sends a 20 ms +5 V pulse at the start of the row, or when its glide has finished |
 | Play from a row | Click its round number badge |
 | Jump to another row while playing | Click that row's badge |
 | Stop | Press **Stop**; every output glides to 0 V |
@@ -164,7 +166,7 @@ The grid is a small JSON file:
 ## Safety and limits
 
 - Every output is capped at **+-5 V** in the code, whatever the grid says.
-- Outputs move by gliding only. They never jump to a new value.
+- Outputs 1 to 6 move by gliding only; they never jump to a new value. The two exceptions are marked in the grid: **Out 7** is a gate that snaps between 0 V and +5 V, and **Out 8** only ever sends a short +5 V trigger pulse (20 ms) and is otherwise 0 V. Both are capped at +5 V like everything else, and both go to 0 V on Stop and quit. Keep Out 7 and 8 away from level or pitch inputs.
 - The ES-8 is opened only when you press play with **Send to ES-8** ticked, and released when the outputs reach 0 V.
 - Only ES-8 outputs 1 to 8 are used. macOS reports 16 outputs, but the rest are ADAT channels that only carry signal with an expander.
 - After the rack is power cycled, the ES-8 can disappear from the Mac until its USB cable is unplugged and plugged back in. If the app says it can't find or start the ES-8, do that and try again.

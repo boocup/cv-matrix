@@ -42,19 +42,17 @@ struct KnobView: View {
     }
 }
 
-/// Out 5 and 6: pick a pitch-shift interval (1 V/oct) instead of turning a knob. Stored as plain volts, so grid files
-/// are unchanged. A value that is not one of the choices shows as Custom, with a box to type any voltage.
-struct IntervalPicker: View {
+/// A menu of fixed voltages in place of a knob. Stored as plain volts, so grid files are unchanged. A value that is not
+/// one of the choices shows as Custom, with a box to type any voltage.
+struct ChoicePicker: View {
     @Binding var value: Double
+    let choices: [(name: String, volts: Double)]
+    let help: String
     @State private var forceCustom = false
-
-    private static let choices: [(name: String, volts: Double)] = [
-        ("None", 0), ("Major 3rd", 4.0 / 12), ("4th", 5.0 / 12), ("5th", 7.0 / 12), ("Octave", 1.0),
-    ]
 
     private var selection: Int {
         if forceCustom { return -1 }
-        return Self.choices.firstIndex { abs($0.volts - value) < 0.0005 } ?? -1
+        return choices.firstIndex { abs($0.volts - value) < 0.0005 } ?? -1
     }
 
     var body: some View {
@@ -62,14 +60,14 @@ struct IntervalPicker: View {
             Picker("", selection: Binding(
                 get: { selection },
                 set: { i in
-                    if i >= 0 { forceCustom = false; value = Self.choices[i].volts } else { forceCustom = true }
+                    if i >= 0 { forceCustom = false; value = choices[i].volts } else { forceCustom = true }
                 })) {
-                ForEach(Self.choices.indices, id: \.self) { Text(Self.choices[$0].name).tag($0) }
+                ForEach(choices.indices, id: \.self) { Text(choices[$0].name).tag($0) }
                 Text("Custom").tag(-1)
             }
             .labelsHidden()
             .frame(width: 80)
-            .help("Pitch shift at 1 V/oct. Custom lets you type any voltage.")
+            .help(help)
 
             ZStack {
                 if selection == -1 {
@@ -85,6 +83,38 @@ struct IntervalPicker: View {
             Text(String(format: "%+.2f V", value))
                 .font(.system(size: 12).monospacedDigit())
                 .foregroundStyle(.secondary)
+        }
+        .frame(width: 84)
+    }
+}
+
+/// Out 5 and 6: pitch-shift intervals at 1 V/oct, upward.
+func intervalPicker(_ value: Binding<Double>) -> some View {
+    ChoicePicker(value: value,
+                 choices: [("None", 0), ("Major 3rd", 4.0 / 12), ("4th", 5.0 / 12), ("5th", 7.0 / 12), ("Octave", 1.0)],
+                 help: "Pitch shift at 1 V/oct. Custom lets you type any voltage.")
+}
+
+/// Out 7: a gate, held for the whole row. It snaps; it does not glide.
+func gatePicker(_ value: Binding<Double>) -> some View {
+    ChoicePicker(value: value, choices: [("Low", 0), ("High", gateVolts)],
+                 help: "Gate: Low is 0 V, High is +5 V, held for the row. It snaps (no glide).")
+}
+
+/// Out 8: a +5 V pulse, 20 ms long, at the start of the row or when its glide has finished.
+struct TrigPicker: View {
+    @Binding var trig: Trig
+
+    var body: some View {
+        VStack(spacing: 2) {
+            Picker("", selection: $trig) {
+                ForEach(Trig.allCases, id: \.self) { Text($0.label).tag($0) }
+            }
+            .labelsHidden()
+            .frame(width: 80)
+            .help("Trigger: a 20 ms +5 V pulse at the start of the row, or when its glide has finished.")
+            Color.clear.frame(height: 18)
+            Text("trig").font(.system(size: 12)).foregroundStyle(.secondary)
         }
         .frame(width: 84)
     }

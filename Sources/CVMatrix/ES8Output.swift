@@ -19,6 +19,8 @@ final class ES8Output: @unchecked Sendable {
     private let cur = UnsafeMutablePointer<Float>.allocate(capacity: ES8Output.channels)      // volts, owned by the callback
     private let slew = UnsafeMutablePointer<Float>.allocate(capacity: 1)                      // V/s, shared by all channels
     private let map = UnsafeMutablePointer<Int32>.allocate(capacity: ES8Output.channels * 3)  // per channel: buffer, channels in buffer, offset
+    private let pulseRequest = UnsafeMutablePointer<Int32>.allocate(capacity: 1)               // main thread bumps it to ask for a trigger
+    private let pulseState = UnsafeMutablePointer<Int32>.allocate(capacity: 2)                // callback only: [requests seen, samples left]
     private var running = false
 
     init() throws {
@@ -26,6 +28,8 @@ final class ES8Output: @unchecked Sendable {
         cur.initialize(repeating: 0, count: Self.channels)
         slew.initialize(to: 1)
         map.initialize(repeating: 0, count: Self.channels * 3)
+        pulseRequest.initialize(to: 0)
+        pulseState.initialize(repeating: 0, count: 2)
 
         guard let found = Self.findDevice() else {
             throw ES8Error(message: "ES-8 not found. If the rack was power cycled, unplug and replug the ES-8 USB cable.")
@@ -53,6 +57,7 @@ final class ES8Output: @unchecked Sendable {
     deinit {
         close()
         target.deallocate(); cur.deallocate(); slew.deallocate(); map.deallocate()
+        pulseRequest.deallocate(); pulseState.deallocate()
     }
 
     // MARK: control (main thread)
@@ -74,6 +79,9 @@ final class ES8Output: @unchecked Sendable {
             target[ch] = Float(clamp(v, -maxVolts, maxVolts))
         }
     }
+
+    /// A short +5 V pulse on the trigger output (Out 8), whatever else is going on. Safe to call at any time.
+    func pulse() { pulseRequest.pointee &+= 1 }
 
     func currentVolts() -> [Double] { (0..<Self.channels).map { Double(cur[$0]) } }
 
@@ -99,9 +107,13 @@ final class ES8Output: @unchecked Sendable {
 
     private func installCallback(rate: Float) {
         let target = self.target, cur = self.cur, slew = self.slew, map = self.map
+        let pulseRequest = self.pulseRequest, pulseState = self.pulseState
         let channels = Self.channels
+        let gateCh = gateOutput, trigCh = trigOutput
         let limit = Float(maxVolts)
         let scale = Float(fullScaleVolts)
+        let trigLevel = Float(gateVolts)
+        let pulseSamples = Int32(trigSeconds * Double(rate))
         var id: AudioDeviceIOProcID?
         _ = AudioDeviceCreateIOProcIDWithBlock(&id, device, nil) { _, _, _, outData, _ in
             let list = UnsafeMutableAudioBufferListPointer(outData)
@@ -112,7 +124,27 @@ final class ES8Output: @unchecked Sendable {
                 guard b < list.count, let raw = list[b].mData else { continue }
                 let frames = Int(list[b].mDataByteSize) / (4 * max(n, 1))
                 let out = raw.assumingMemoryBound(to: Float.self)
+                if ch == trigCh {                                // trigger: a pulse of fixed length, never a level
+                    let requested = pulseRequest.pointee
+                    if requested != pulseState[0] { pulseState[0] = requested; pulseState[1] = pulseSamples }
+                    var left = pulseState[1]
+                    var last: Float = 0
+                    for f in 0..<frames where left > 0 {
+                        out[f * n + off] = trigLevel / scale
+                        last = trigLevel
+                        left -= 1
+                    }
+                    if left <= 0 { last = 0 }
+                    pulseState[1] = left
+                    cur[ch] = last
+                    continue
+                }
                 let goal = max(-limit, min(limit, target[ch]))
+                if ch == gateCh {                                // gate: snaps to its target, no glide
+                    for f in 0..<frames { out[f * n + off] = goal / scale }
+                    cur[ch] = goal
+                    continue
+                }
                 var v = cur[ch]
                 for f in 0..<frames {
                     v += max(-step, min(step, goal - v))          // glide: never jump, whatever the target
