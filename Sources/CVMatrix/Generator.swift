@@ -61,9 +61,12 @@ final class Generator {
 
         let command = "cd \(Self.quoted(agentFolder.path)) && PY=.venv/bin/python; [ -x \"$PY\" ] || PY=python3; "
             + "exec \"$PY\" -u chapters.py --backend claude --chapters \(chapters) --write-grid-dir \(Self.quoted(outputDir.path))"
+        // A login, interactive shell, so ANTHROPIC_API_KEY from the user's shell setup (.zshrc) is there. Started from a
+        // terminal (swift run) an interactive shell would try to use that terminal and be suspended (state T), so first
+        // start a new session, which has no controlling terminal.
         let p = Process()
-        p.executableURL = URL(fileURLWithPath: "/bin/zsh")
-        p.arguments = ["-lic", command]                      // login shell, so ANTHROPIC_API_KEY from the user's shell setup is there
+        p.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+        p.arguments = ["-c", "import os,sys; os.setsid(); os.execv('/bin/zsh', ['zsh', '-lic', sys.argv[1]])", command]
         p.standardInput = FileHandle.nullDevice
         let out = Pipe(), err = Pipe()
         p.standardOutput = out
@@ -102,7 +105,13 @@ final class Generator {
 
     func cancel() {
         cancelled = true
-        process?.terminate()
+        guard let p = process else { return }
+        p.terminate()
+        // A suspended process only acts on SIGTERM once resumed; make sure it really goes.
+        Task {
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            if p.isRunning { kill(p.processIdentifier, SIGKILL) }
+        }
     }
 
     /// "3. Hollow Drift   env1 0.20 ..." becomes "Chapter 3: Hollow Drift".
