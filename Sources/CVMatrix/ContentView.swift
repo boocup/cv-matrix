@@ -197,7 +197,7 @@ struct ContentView: View {
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.json]
         panel.allowsMultipleSelection = false
-        panel.message = "Choose a matrix_grid.json"
+        panel.message = "Choose a CV Matrix grid file (.json)"
         panel.directoryURL = MatrixStore.gridsDirForPanel()
         guard panel.runModal() == .OK, let url = panel.url else { return }
         let alert = NSAlert()
