@@ -15,6 +15,8 @@ enum Theme {
     static let label = Color(hex: 0x280b0b)
     static let live = Color(red: 0.08, green: 0.48, blue: 0.16)   // green readable on the grey
     static let row = Color.white.opacity(0.35)
+    static let liveOnDark = Color(hex: 0x6fdc8c)
+    static let orangeOnDark = Color(hex: 0xf0a070)
 
     static let knobTop = Color(hex: 0x3a3a3a)
     static let knobBottom = Color(hex: 0x0e0e0e)
@@ -25,28 +27,6 @@ enum Theme {
 
 /// Column names for the eight ES-8 outputs.
 let outputNames = ["Lead", "Harmony", "Drone", "Texture", "Pitch", "Pitch", "Gate", "Trigger"]
-
-/// Where the outputs go and whether it is playing: a dot and a short line of text in a capsule.
-struct StatusPill: View {
-    let live: Bool
-    let playing: Bool
-    let text: String
-
-    var body: some View {
-        HStack(spacing: 7) {
-            Circle()
-                .fill(playing ? Theme.live : live ? Theme.orange : Theme.label.opacity(0.35))
-                .frame(width: 8, height: 8)
-            Text(text)
-                .font(.system(size: 12, weight: .medium).monospacedDigit())
-                .foregroundStyle(Theme.label.opacity(0.85))
-        }
-        .padding(.horizontal, 10).padding(.vertical, 4)
-        .background(Capsule().fill(Color.white.opacity(0.45)))
-        .overlay(Capsule().stroke(Color.black.opacity(0.08)))
-        .help(live ? "Outputs go to the ES-8" : "Dry run: nothing is sent; turn on Send to ES-8")
-    }
-}
 
 extension Color {
     init(hex: UInt32) {

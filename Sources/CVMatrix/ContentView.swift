@@ -17,45 +17,12 @@ struct ContentView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .center, spacing: 12) {
+            HStack(alignment: .center, spacing: 10) {
                 VStack(alignment: .leading, spacing: 1) {
                     BrandMark()
                     Text("CV Matrix").font(.system(size: 22, weight: .bold)).foregroundStyle(Theme.label)
                 }
                 .padding(.trailing, 10)
-                Button { player.play(from: store.selected) } label: {
-                    Label("Play from Row \(store.selected + 1)", systemImage: "play.fill")
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(Theme.live)
-                .keyboardShortcut(.return, modifiers: .command)
-                .disabled(player.playing)
-                .help("Play from the selected row (⌘Return)")
-                Button { player.stop() } label: { Label("Stop", systemImage: "stop.fill") }
-                    .keyboardShortcut(".", modifiers: .command)
-                    .help("Stop: every output glides to 0 V (⌘.)")
-                Toggle("Send to ES-8", isOn: $player.sendToES8)
-                    .toggleStyle(.switch).controlSize(.small)
-                    .disabled(player.playing)
-                    .fixedSize()
-                    .padding(.leading, 6)
-                Spacer(minLength: 16)
-                HStack(spacing: 6) {
-                    Text("Speed").foregroundStyle(Theme.label)
-                    TextField("", value: speedBinding, format: numberFormat)
-                        .frame(width: 46)
-                        .multilineTextAlignment(.trailing)
-                        .escapeLeavesField()
-                    Text("×").foregroundStyle(.secondary)
-                }
-                .fixedSize()
-                .help("Scales every row's time and glide: 0.5 = twice as fast, 2 = half as fast")
-                Toggle("Loop", isOn: $store.grid.loop).fixedSize()
-                Toggle("Autosave", isOn: $store.autosave).fixedSize()
-                    .help("Write edits to matrix_grid.json as you make them")
-            }
-            HStack(spacing: 10) {
-                StatusPill(live: player.sendToES8, playing: player.playing, text: statusText)
                 if generator.running {
                     ProgressView().controlSize(.small)
                     Text(generator.progress).foregroundStyle(.secondary)
@@ -75,13 +42,16 @@ struct ContentView: View {
                 Button { saveGrid() } label: { Label("Save…", systemImage: "square.and.arrow.down") }
                     .keyboardShortcut("s", modifiers: .command)
                     .help("Save a copy of the grid (⌘S)")
+                Toggle("Autosave", isOn: $store.autosave).fixedSize()
+                    .help("Write edits to matrix_grid.json as you make them")
+                    .padding(.trailing, 4)
                 Button { showPrompt = true } label: { Label("Generate…", systemImage: "sparkles") }
                     .disabled(generator.running)
                     .help("Ask Claude to write a new piece. Opens a window for your direction, then runs chapters.py from your ambient-agent folder with the Claude backend: a few cents per run, uses your ANTHROPIC_API_KEY. The new grid is loaded but not played.")
                 Button { showGeneratedFolder() } label: { Label("Files", systemImage: "folder") }
                     .help("Show the grid files folder (~/Documents/CV Matrix) in Finder")
             }
-            .fixedSize(horizontal: false, vertical: true)
+            DisplayPanel(store: store, player: player)
             if !generator.error.isEmpty { Text(generator.error).foregroundStyle(.red) }
             if !player.message.isEmpty {
                 Text(player.message).foregroundStyle(.red)
@@ -246,23 +216,11 @@ struct ContentView: View {
         }
     }
 
-    private var statusText: String {
-        let where_ = player.sendToES8 ? "ES-8" : "Dry run"
-        return player.playing
-            ? "\(where_) · Playing row \(player.current + 1) · \(Int(player.elapsed)) of \(Int(player.rowTime)) s"
-            : "\(where_) · Stopped"
-    }
-
     /// 0...1 for the row being played, nil for the others.
     private func progress(for id: Row.ID) -> Double? {
         guard player.playing, let i = store.grid.rows.firstIndex(where: { $0.id == id }), i == player.current,
               player.rowTime > 0 else { return nil }
         return min(1, player.elapsed / player.rowTime)
-    }
-
-    private var speedBinding: Binding<Double> {
-        Binding(get: { store.grid.speed },
-                set: { store.grid.speed = clamp($0, 0.05, 20) })
     }
 
     private var header: some View {
@@ -328,7 +286,7 @@ struct RowView: View {
         HStack(spacing: 6) {
             HStack(spacing: 6) {
                 RowNumber(number: index + 1, selected: selected, playing: progress != nil, action: onSelect)
-                TextField("Chapter name", text: $row.name).frame(width: 150).escapeLeavesField()
+                ChapterName(name: $row.name, playing: progress != nil).frame(width: 150, alignment: .leading)
                 TextField("", value: timeBinding, format: numberFormat).frame(width: 66).escapeLeavesField()
                     .monospacedDigit().help("Whole chapter, in seconds")
                 TextField("", value: glideBinding, format: numberFormat).frame(width: 66).escapeLeavesField()
@@ -424,6 +382,35 @@ private struct WindowAccessor: NSViewRepresentable {
 
     func updateNSView(_ nsView: NSView, context: Context) {
         DispatchQueue.main.async { if let w = nsView.window { onWindow(w) } }
+    }
+}
+
+/// A chapter's name as display type (serif, like a title card). Double-click to rename; Return or Escape finishes.
+struct ChapterName: View {
+    @Binding var name: String
+    let playing: Bool
+    @State private var editing = false
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        if editing {
+            TextField("Chapter name", text: $name)
+                .focused($focused)
+                .onSubmit { editing = false }
+                .onExitCommand { editing = false }
+                .onChange(of: focused) { _, f in if !f { editing = false } }
+                .onAppear { focused = true }
+        } else {
+            Text(name.isEmpty ? "Untitled" : name)
+                .font(.system(size: 15, weight: .semibold, design: .serif))
+                .foregroundStyle(playing ? Theme.live : Theme.label)
+                .lineLimit(2).minimumScaleFactor(0.8)
+                .padding(.leading, 6)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+                .onTapGesture(count: 2) { editing = true }
+                .help("Double-click to rename")
+        }
     }
 }
 

@@ -1,6 +1,6 @@
 # THEREELPEET CV Matrix
 
-![THEREELPEET CV Matrix playing a five-row grid (dry run)](res/CVMatrix-screenshot.png)
+![THEREELPEET CV Matrix playing chapter 4 of a five-chapter grid (dry run)](res/CVMatrix-screenshot.png)
 
 A small Mac app that turns an Expert Sleepers **ES-8** into eight slowly moving control voltages for a modular rack.
 
@@ -87,7 +87,7 @@ Full scale (+-1.0 in the audio stream) is assumed to be about +-10 V on the jack
 | Shift Out 5 or 6 by an interval | Pick it from the menu: None, major 3rd, 4th, 5th or octave (1 V/oct, upward). Custom lets you type any voltage |
 | Gate on Out 7 | Pick Low (0 V) or High (+5 V) from the menu. It is held for the whole row and snaps, with no glide |
 | Trigger on Out 8 | Pick None, At start or After glide. It sends a 20 ms +5 V pulse at the start of the row, or when its glide has finished |
-| Play from a row | Click its round number badge |
+| Play from a row | Click its round number badge, or click its chapter in the visualizer |
 | Jump to another row while playing | Click that row's badge |
 | Stop | Press **Stop** (⌘.); every output glides to 0 V |
 | Add, copy or remove a row | **Add Chapter** under the rows, or the copy and trash buttons at the end of each row |
@@ -95,7 +95,7 @@ Full scale (+-1.0 in the audio stream) is assumed to be about +-10 V on the jack
 
 Each row has:
 
-- **Chapter**: a name, up to 40 characters.
+- **Chapter**: a name, up to 40 characters, shown as a title. Double-click it to rename; Return or Escape finishes.
 - **Time**: how long the row lasts, in seconds (1 to 3600).
 - **Glide**: how many of those seconds are spent moving from the previous row's voltages to this row's. It can't be longer than the time.
 - **Outputs 1 to 4** (Lead, Harmony, Drone, Texture, on a blue band): knobs, -5 to +5 V.
@@ -105,16 +105,17 @@ Each row has:
 
 The numbered badge in each column heading is the ES-8 output it drives.
 
-Along the top:
+Along the top, next to the THEREELPEET wordmark: **Trigger All Rows** sets Out 8's trigger on every row at once, **Open…** (⌘O) and **Save…** (⌘S) load and save grid files, **Autosave** (off at every launch, see Files below), **Generate…** asks Claude for a new piece, and **Files** shows the grid folder in Finder.
 
-- **Play from Row N** (⌘Return): starts from the selected row.
-- **Stop** (⌘.): every output glides to 0 V.
-- **Send to ES-8**: on at every launch. Untick it for a **dry run** that shows the computed voltages without sending anything.
-- **Speed**: multiplies every row's time and glide. 0.5 is twice as fast, 2 is half speed.
+Under that is the dark **display**:
+
+- **Play** (⌘Return) starts from the selected chapter; **Stop** (⌘.) glides every output to 0 V.
+- The readout shows the chapter that is playing (or the selected one, when stopped), with its time and the whole piece's time.
+- **Half / Normal / Double**: playback speed for the whole piece. A grid saved with some other speed keeps it, and none of the three is highlighted.
 - **Loop**: go back to row 1 after the last row. Otherwise it stops and glides to 0 V.
-- **Autosave**: off at every launch (see Files below).
-
-On the second line, the status pill shows where the outputs go (ES-8 or Dry run) and what is playing. To its right: **Trigger All Rows** sets Out 8's trigger on every row at once, **Open…** (⌘O) and **Save…** (⌘S) load and save grid files, **Generate…** asks Claude for a new piece, and **Files** shows the grid folder in Finder.
+- **ES-8 / Dry run**: on at every launch. Switch it off for a **dry run** that shows the computed voltages without sending anything.
+- The **visualizer** draws the whole piece, one colored line per output (1 Lead, 2 Harmony, 3 Drone, 4 Texture, 5 and 6 Pitch), as it plays from chapter 1, with chapter numbers along the top, gate-high stretches as an amber bar along the bottom and triggers as small ticks. While playing, a playhead moves across it, the part already played lights up, and a dot on each line shows where that output really is. Click anywhere in it to play from that chapter, or to jump there while playing.
+- The **meters** on the right show outputs 1 to 6 live, as bars up or down from 0 V. **G** lights while the gate is high, and **T** flashes on each trigger.
 
 The small numbers under each column heading are where that output is right now, so you can watch the glides.
 
@@ -188,7 +189,9 @@ Grid files live in `~/Documents/CV Matrix/`: **Open…** and **Save…** open th
     Sources/CVMatrix/
       CVMatrixApp.swift   app entry, window and quit handling
       ContentView.swift   the grid screen
-      KnobView.swift      the knobs
+      Display.swift       the dark display: transport, readout, visualizer, meters
+      KnobView.swift      the knobs and output menus
+      Theme.swift         the THEREELPEET panel colors
       Model.swift         rows and the grid file format
       Store.swift         the grid, loading, saving
       Player.swift        play logic and glides
