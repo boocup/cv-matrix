@@ -10,7 +10,11 @@ final class MatrixStore {
     var message = ""
     private(set) var baseline: Grid  // the grid as last loaded or saved, to tell whether there are unsaved edits
     var dirty: Bool { grid != baseline }
-    var gridName: String?            // file name of the last grid loaded or saved, minus date/id prefix; Save grid... offers it
+    /// File name of the last grid loaded or saved, minus date/id prefix; Save grid... offers it. Remembered across launches.
+    var gridName: String? = UserDefaults.standard.string(forKey: "gridName") {
+        didSet { UserDefaults.standard.set(gridName, forKey: Self.gridNameKey) }
+    }
+    static let gridNameKey = "gridName"
     var autosave = false             // off at every launch: edits are not written to disk unless this is ticked
 
     @ObservationIgnored private var saveTask: Task<Void, Never>?
