@@ -10,6 +10,7 @@ final class MatrixStore {
     var message = ""
     private(set) var baseline: Grid  // the grid as last loaded or saved, to tell whether there are unsaved edits
     var dirty: Bool { grid != baseline }
+    var gridName: String?            // file name of the last grid loaded or saved, minus date/id prefix; Save grid... offers it
     var autosave = false             // off at every launch: edits are not written to disk unless this is ticked
 
     @ObservationIgnored private var saveTask: Task<Void, Never>?
@@ -81,13 +82,26 @@ final class MatrixStore {
     /// Replace the grid with a matrix_grid.json from anywhere. Throws if the file is not a grid.
     func load(from url: URL) throws {
         grid = try JSONDecoder().decode(Grid.self, from: Data(contentsOf: url))
+        gridName = Self.unprefixed(url.deletingPathExtension().lastPathComponent)
         baseline = grid
         selected = 0
         message = ""
     }
 
+    /// "2026-10-15-1003-quiet-dawn" and "p2-0138-selvage" become "quiet-dawn" and "selvage".
+    nonisolated static func unprefixed(_ name: String) -> String {
+        let stripped = name.replacingOccurrences(of: #"^(\d{4}-\d{2}-\d{2}-\d{4}-|p\d+-\d+-)"#, with: "", options: .regularExpression)
+        return stripped.isEmpty ? name : stripped
+    }
+
     func addRow() {
-        grid.rows.append(Row(name: "Chapter \(grid.rows.count + 1)"))
+        var row = Row(name: "Chapter \(grid.rows.count + 1)")
+        row.trig = grid.rows.last?.trig ?? .none          // new rows keep the trigger setting you are using
+        grid.rows.append(row)
+    }
+
+    func setAllTrigs(_ trig: Trig) {
+        for i in grid.rows.indices { grid.rows[i].trig = trig }
     }
 
     func duplicate(_ id: Row.ID) {
@@ -112,6 +126,7 @@ final class MatrixStore {
     /// Save a copy of the grid wherever the user chooses (matrix_grid.json format).
     func save(to url: URL) throws {
         try Self.write(grid, to: url)
+        gridName = url.deletingPathExtension().lastPathComponent
         baseline = grid
     }
 

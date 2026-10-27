@@ -29,6 +29,13 @@ struct ContentView: View {
                 Toggle("Send to ES-8", isOn: $player.sendToES8)
                     .disabled(player.playing)
                 Spacer()
+                Menu("Trig, all rows") {
+                    ForEach(Trig.allCases, id: \.self) { t in
+                        Button(t.label) { store.setAllTrigs(t) }
+                    }
+                }
+                .fixedSize()
+                .help("Set Out 8's trigger on every row at once. New rows copy the row above.")
                 Button("Load grid…", action: loadGrid)
                 Button("Save grid…", action: saveGrid)
                 HStack(spacing: 4) {
@@ -138,7 +145,7 @@ struct ContentView: View {
     private func saveGrid() {
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.json]
-        panel.nameFieldStringValue = "matrix_grid.json"
+        panel.nameFieldStringValue = (store.gridName ?? "matrix_grid") + ".json"
         panel.message = "Save a copy of the grid"
         panel.directoryURL = MatrixStore.gridsDirForPanel()
         guard panel.runModal() == .OK, let url = panel.url else { return }
@@ -242,6 +249,8 @@ struct ContentView: View {
             ForEach(0..<outputs, id: \.self) { k in
                 VStack(spacing: 0) {
                     Text("Out \(k + 1)")
+                    Text(k == 4 || k == 5 ? "pitch" : k == gateOutput ? "gate" : k == trigOutput ? "trig" : ["lead", "harmony", "drone", "texture"][k])
+                        .font(.caption2)
                     Text(String(format: "%+.2f", player.volts[k])).monospacedDigit()
                         .foregroundStyle(Color.green)
                 }
