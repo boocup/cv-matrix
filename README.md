@@ -1,6 +1,6 @@
 # THEREELPEET CV Matrix
 
-![THEREELPEET CV Matrix playing a six-row grid](res/CVMatrix-screenshot.png)
+![THEREELPEET CV Matrix playing a five-row grid (dry run)](res/CVMatrix-screenshot.png)
 
 A small Mac app that turns an Expert Sleepers **ES-8** into eight slowly moving control voltages for a modular rack.
 
@@ -89,8 +89,8 @@ Full scale (+-1.0 in the audio stream) is assumed to be about +-10 V on the jack
 | Trigger on Out 8 | Pick None, At start or After glide. It sends a 20 ms +5 V pulse at the start of the row, or when its glide has finished |
 | Play from a row | Click its round number badge |
 | Jump to another row while playing | Click that row's badge |
-| Stop | Press **Stop**; every output glides to 0 V |
-| Add, copy or remove a row | **+ Add row**, the copy button, the delete button on each row |
+| Stop | Press **Stop** (⌘.); every output glides to 0 V |
+| Add, copy or remove a row | **Add Chapter** under the rows, or the copy and trash buttons at the end of each row |
 | Leave a text box | Press **Escape** or click empty space |
 
 Each row has:
@@ -98,20 +98,25 @@ Each row has:
 - **Chapter**: a name, up to 40 characters.
 - **Time**: how long the row lasts, in seconds (1 to 3600).
 - **Glide**: how many of those seconds are spent moving from the previous row's voltages to this row's. It can't be longer than the time.
-- **Out 1 to Out 4**: knobs, -5 to +5 V.
-- **Out 5 and Out 6**: pitch-shift menus (None, major 3rd, 4th, 5th, octave, or Custom).
-- **Out 7**: a gate menu (Low or High).
-- **Out 8**: a trigger menu (None, At start, After glide).
+- **Outputs 1 to 4** (Lead, Harmony, Drone, Texture, on a blue band): knobs, -5 to +5 V.
+- **Outputs 5 and 6** (Pitch, on an orange band): pitch-shift menus (None, major 3rd, 4th, 5th, octave, or Custom).
+- **Output 7** (Gate): a gate menu (Low or High).
+- **Output 8** (Trigger): a trigger menu (None, At start, After glide).
+
+The numbered badge in each column heading is the ES-8 output it drives.
 
 Along the top:
 
-- **Play from row N**: starts from the selected row.
+- **Play from Row N** (⌘Return): starts from the selected row.
+- **Stop** (⌘.): every output glides to 0 V.
 - **Send to ES-8**: on at every launch. Untick it for a **dry run** that shows the computed voltages without sending anything.
 - **Speed**: multiplies every row's time and glide. 0.5 is twice as fast, 2 is half speed.
 - **Loop**: go back to row 1 after the last row. Otherwise it stops and glides to 0 V.
 - **Autosave**: off at every launch (see Files below).
 
-The small green numbers under each "Out" heading are where that output is right now, so you can watch the glides.
+On the second line, the status pill shows where the outputs go (ES-8 or Dry run) and what is playing. To its right: **Trigger All Rows** sets Out 8's trigger on every row at once, **Open…** (⌘O) and **Save…** (⌘S) load and save grid files, **Generate…** asks Claude for a new piece, and **Files** shows the grid folder in Finder.
+
+The small numbers under each column heading are where that output is right now, so you can watch the glides.
 
 If you change a knob on the row that is playing, that output follows it with a half-second glide. Edits to other rows take effect when those rows play.
 
@@ -119,7 +124,7 @@ The window sizes itself to show every row when it opens (up to the size of your 
 
 ## Generate with Claude (optional)
 
-The **Generate with Claude** button asks Claude to write a new piece and loads it. It is optional: without it, the app never touches the network.
+The **Generate…** button asks Claude to write a new piece and loads it. It is optional: without it, the app never touches the network.
 
 It works by running `chapters.py` from your own copy of [ambient-agent](https://github.com/boocup/ambient-agent) with the Claude backend. The app itself makes no network call and never sees your API key. The script runs in a login shell, so it picks up `ANTHROPIC_API_KEY` from your shell setup, and the key stays inside that process.
 
@@ -133,7 +138,7 @@ How it goes:
 
 1. Click the button. A window asks you to describe your voices and what you want, in your own words ("Voice 1 and 2 are similar, voice 2 repeats note one. Voice 3 is a tape delay loop of voice 1. Sparse and dark please."), and for the number of **voices** (1 to 8) and **chapters** (1 to 12). The app remembers all three. Leave the description empty for the built-in four-voice setup. Click **Generate** (or press Cmd-Return). Claude writes the chapters one after another, and the main window shows which one it is on. **Cancel** stops it.
 2. Each run costs a few cents of API credit (one request per chapter).
-3. The new piece is saved as a grid file, named by date, time and its first chapter (for example `2026-10-15-0942-quiet-dawn-emergence.json`), in `~/Documents/CV Matrix/`. Existing files are never overwritten. **Show generated files** opens that folder in Finder.
+3. The new piece is saved as a grid file, named by date, time and its first chapter (for example `2026-10-15-0942-quiet-dawn-emergence.json`), in `~/Documents/CV Matrix/`. Existing files are never overwritten. **Files** opens that folder in Finder.
 4. The app loads it and selects row 1. **It does not start playing.** Press Play when you are ready.
 5. If something would be lost by loading (music is playing, or the current grid has edits you haven't saved), the app asks first. The new file is saved either way.
 
@@ -162,11 +167,11 @@ The grid is a small JSON file:
       "loop": false
     }
 
-Grid files live in `~/Documents/CV Matrix/`: **Load grid...** and **Save grid...** open there, and Generate with Claude saves there. The folder is created the first time it is needed, and macOS may ask once whether the app may use your Documents folder.
+Grid files live in `~/Documents/CV Matrix/`: **Open…** and **Save…** open there, and Generate with Claude saves there. The folder is created the first time it is needed, and macOS may ask once whether the app may use your Documents folder.
 
-- **Load grid...** opens a file like this. It asks before replacing the current grid and stops playback first. Loading never writes back to the file you opened.
-- **Save grid...** saves a copy of the current grid wherever you choose.
-- **Autosave** is a switch, off at every launch. When ticked, the current grid is written as you edit, to `~/Library/Application Support/CVMatrix/matrix_grid.json`, and that file is what the app opens at launch. With it off, your edits are lost when you quit unless you used Save grid.
+- **Open…** loads a file like this. It asks before replacing the current grid and stops playback first. Loading never writes back to the file you opened.
+- **Save…** saves a copy of the current grid wherever you choose. It suggests the name of the file you last opened or saved, without the date or corpus-id prefix.
+- **Autosave** is a switch, off at every launch. When ticked, the current grid is written as you edit, to `~/Library/Application Support/CVMatrix/matrix_grid.json`, and that file is what the app opens at launch. With it off, your edits are lost when you quit unless you used Save….
 
 ## Safety and limits
 

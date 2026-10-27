@@ -11,10 +11,12 @@ struct KnobView: View {
     var body: some View {
         VStack(spacing: 2) {
             ZStack {
-                Circle().fill(Color(nsColor: .windowBackgroundColor))
-                Circle().strokeBorder(Color.secondary.opacity(0.4), lineWidth: 2)
+                Circle()                                         // black knob, as on the module panels
+                    .fill(LinearGradient(colors: [Theme.knobTop, Theme.knobBottom], startPoint: .top, endPoint: .bottom))
+                    .shadow(color: .black.opacity(0.35), radius: 2, y: 1.5)
+                Circle().strokeBorder(Color.white.opacity(0.12), lineWidth: 1)
                 Capsule()
-                    .fill(value < 0 ? Color(red: 0.42, green: 0.66, blue: 1) : Color(red: 0.88, green: 0.64, blue: 0.29))
+                    .fill(Color.white)
                     .frame(width: 3, height: 15)
                     .offset(y: -11)
                     .rotationEffect(.degrees(angle))
@@ -34,11 +36,19 @@ struct KnobView: View {
             )
             .onTapGesture(count: 2) { value = 0 }
 
-            Text(String(format: "%+.2f V", value))
-                .font(.system(size: 12).monospacedDigit())
-                .foregroundStyle(.secondary)
+            VoltReadout(value: value)
         }
         .frame(width: 84)
+    }
+}
+
+/// The voltage under a control, e.g. "+2.25 V".
+struct VoltReadout: View {
+    let value: Double
+    var body: some View {
+        Text(String(format: "%+.2f V", value))
+            .font(.system(size: 11, weight: .medium).monospacedDigit())
+            .foregroundStyle(Theme.label.opacity(abs(value) < 0.005 ? 0.4 : 0.75))
     }
 }
 
@@ -69,20 +79,19 @@ struct ChoicePicker: View {
             .frame(width: 80)
             .help(help)
 
-            ZStack {
+            ZStack {                                        // Custom swaps the readout for a box to type volts
                 if selection == -1 {
                     TextField("V", value: Binding(get: { value }, set: { value = clamp($0, -maxVolts, maxVolts) }),
                               format: .number.precision(.fractionLength(0...3)))
                         .frame(width: 60)
                         .multilineTextAlignment(.trailing)
+                        .monospacedDigit()
                         .escapeLeavesField()
+                } else {
+                    VoltReadout(value: value)
                 }
             }
-            .frame(height: 18)
-
-            Text(String(format: "%+.2f V", value))
-                .font(.system(size: 12).monospacedDigit())
-                .foregroundStyle(.secondary)
+            .frame(height: 22)
         }
         .frame(width: 84)
     }
@@ -113,8 +122,7 @@ struct TrigPicker: View {
             .labelsHidden()
             .frame(width: 80)
             .help("Trigger: a 20 ms +5 V pulse at the start of the row, or when its glide has finished.")
-            Color.clear.frame(height: 18)
-            Text("trig").font(.system(size: 12)).foregroundStyle(.secondary)
+            Color.clear.frame(height: 22)
         }
         .frame(width: 84)
     }

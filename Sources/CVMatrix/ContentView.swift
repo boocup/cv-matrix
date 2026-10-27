@@ -16,59 +16,78 @@ struct ContentView: View {
     @State private var window: NSWindow?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 14) {
-                VStack(alignment: .leading, spacing: 0) {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .center, spacing: 12) {
+                VStack(alignment: .leading, spacing: 1) {
                     BrandMark()
-                    Text("CV Matrix").font(.title2.bold())
+                    Text("CV Matrix").font(.system(size: 22, weight: .bold)).foregroundStyle(Theme.label)
                 }
-                Button("▶ Play from row \(store.selected + 1)") { player.play(from: store.selected) }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(player.playing)
-                Button("■ Stop (glide to 0 V)") { player.stop() }
+                .padding(.trailing, 10)
+                Button { player.play(from: store.selected) } label: {
+                    Label("Play from Row \(store.selected + 1)", systemImage: "play.fill")
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(Theme.live)
+                .keyboardShortcut(.return, modifiers: .command)
+                .disabled(player.playing)
+                .help("Play from the selected row (⌘Return)")
+                Button { player.stop() } label: { Label("Stop", systemImage: "stop.fill") }
+                    .keyboardShortcut(".", modifiers: .command)
+                    .help("Stop: every output glides to 0 V (⌘.)")
                 Toggle("Send to ES-8", isOn: $player.sendToES8)
+                    .toggleStyle(.switch).controlSize(.small)
                     .disabled(player.playing)
-                Spacer()
-                Menu("Trig, all rows") {
-                    ForEach(Trig.allCases, id: \.self) { t in
-                        Button(t.label) { store.setAllTrigs(t) }
-                    }
+                    .fixedSize()
+                    .padding(.leading, 6)
+                Spacer(minLength: 16)
+                HStack(spacing: 6) {
+                    Text("Speed").foregroundStyle(Theme.label)
+                    TextField("", value: speedBinding, format: numberFormat)
+                        .frame(width: 46)
+                        .multilineTextAlignment(.trailing)
+                        .escapeLeavesField()
+                    Text("×").foregroundStyle(.secondary)
                 }
                 .fixedSize()
-                .help("Set Out 8's trigger on every row at once. New rows copy the row above.")
-                Button("Load grid…", action: loadGrid)
-                Button("Save grid…", action: saveGrid)
-                HStack(spacing: 4) {
-                    Text("Speed")
-                    TextField("", value: speedBinding, format: numberFormat)
-                        .frame(width: 60)
-                        .escapeLeavesField()
-                    Text("(0.5 = twice as fast)").foregroundStyle(.secondary)
-                }
-                Toggle("Loop", isOn: $store.grid.loop)
-                Toggle("Autosave", isOn: $store.autosave)
+                .help("Scales every row's time and glide: 0.5 = twice as fast, 2 = half as fast")
+                Toggle("Loop", isOn: $store.grid.loop).fixedSize()
+                Toggle("Autosave", isOn: $store.autosave).fixedSize()
                     .help("Write edits to matrix_grid.json as you make them")
             }
-            Text((player.sendToES8 ? "Sending to the ES-8. " : "Dry run: nothing is sent. ") + statusText)
-                .foregroundStyle(player.sendToES8 ? Color.orange : .secondary)
             HStack(spacing: 10) {
-                Button("✦ Generate with Claude…") { showPrompt = true }
-                    .disabled(generator.running)
-                    .help("Opens a window for your direction, then runs chapters.py from your ambient-agent folder with the Claude backend: a few cents per run, uses your ANTHROPIC_API_KEY. The new grid is loaded but not played.")
-                Button("Show generated files") { showGeneratedFolder() }
-                    .help("Opens the folder where Generate with Claude saves its grids, in Finder")
+                StatusPill(live: player.sendToES8, playing: player.playing, text: statusText)
                 if generator.running {
                     ProgressView().controlSize(.small)
                     Text(generator.progress).foregroundStyle(.secondary)
                     Button("Cancel") { generator.cancel() }
                 }
-                if !generator.error.isEmpty { Text(generator.error).foregroundStyle(.red) }
+                Spacer(minLength: 16)
+                Menu {
+                    ForEach(Trig.allCases, id: \.self) { t in
+                        Button(t.label) { store.setAllTrigs(t) }
+                    }
+                } label: { Label("Trigger All Rows", systemImage: "bolt") }
+                .fixedSize()
+                .help("Set Out 8's trigger on every row at once. New rows copy the row above.")
+                Button { loadGrid() } label: { Label("Open…", systemImage: "doc") }
+                    .keyboardShortcut("o", modifiers: .command)
+                    .help("Load a grid file (⌘O)")
+                Button { saveGrid() } label: { Label("Save…", systemImage: "square.and.arrow.down") }
+                    .keyboardShortcut("s", modifiers: .command)
+                    .help("Save a copy of the grid (⌘S)")
+                Button { showPrompt = true } label: { Label("Generate…", systemImage: "sparkles") }
+                    .disabled(generator.running)
+                    .help("Ask Claude to write a new piece. Opens a window for your direction, then runs chapters.py from your ambient-agent folder with the Claude backend: a few cents per run, uses your ANTHROPIC_API_KEY. The new grid is loaded but not played.")
+                Button { showGeneratedFolder() } label: { Label("Files", systemImage: "folder") }
+                    .help("Show the grid files folder (~/Documents/CV Matrix) in Finder")
             }
+            .fixedSize(horizontal: false, vertical: true)
+            if !generator.error.isEmpty { Text(generator.error).foregroundStyle(.red) }
             if !player.message.isEmpty {
                 Text(player.message).foregroundStyle(.red)
             }
             if !store.message.isEmpty {
-                Text(store.message).foregroundStyle(.orange)
+                Text(store.message).foregroundStyle(Theme.label.opacity(0.8))
             }
 
             ScrollView([.horizontal, .vertical]) {
@@ -87,20 +106,25 @@ struct ContentView: View {
                                 onDuplicate: { store.duplicate(row.id) },
                                 onDelete: { store.delete(row.id) })
                     }
-                    Button("+ Add row") { store.addRow() }
+                    Button { store.addRow() } label: { Label("Add Chapter", systemImage: "plus") }
+                        .buttonStyle(.borderless)
+                        .foregroundStyle(Theme.label)
+                        .padding(.leading, 10).padding(.top, 2)
                 }
                 .padding(.bottom, 8)
             }
 
-            Text("Drag a knob up or down (hold Shift for fine steps). Double-click a knob for 0 V. Click a row number to play from that row (or jump to it while playing). Time is the whole row in seconds; glide is the part of it spent moving from the previous row. All knobs run -5 to +5 V.")
-                .font(.caption).foregroundStyle(.secondary)
+            Text("Drag a knob up or down, with Shift for fine steps; double-click for 0 V. Click a row number to play from it, or to jump there while playing. Time is the whole chapter; Glide is the part of it spent moving from the previous one. Knobs run −5 to +5 V.")
+                .font(.system(size: 11)).foregroundStyle(Theme.label.opacity(0.6))
         }
-        .padding(16)
+        .padding(.horizontal, 18).padding(.bottom, 14).padding(.top, 2)
         .frame(minWidth: 1000, minHeight: 400)
         .background(
             Color.clear.contentShape(Rectangle())
                 .onTapGesture { NSApp.keyWindow?.makeFirstResponder(nil) }   // click empty space: leave the text field
         )
+        .background(Theme.panel.ignoresSafeArea())
+        .preferredColorScheme(.light)                                    // the panel look is light only
         .sheet(isPresented: $showPrompt) {
             PromptSheet(brief: $generateBrief, voices: $generateVoices, chapters: $generateChapters) {
                 showPrompt = false
@@ -132,7 +156,7 @@ struct ContentView: View {
             let viewportSize = scroll.contentSize       // the part of the window the rows are shown in
             let content = window.contentLayoutRect.size
             let wanted = NSSize(width: contentSize.width + (content.width - viewportSize.width),
-                                height: contentSize.height + (content.height - viewportSize.height))
+                                height: contentSize.height + (content.height - viewportSize.height) + 44)   // + room for text that rewraps
             let room = screen.visibleFrame.size
             var frame = window.frame
             let target = window.frameRect(forContentRect: NSRect(origin: .zero, size: wanted)).size
@@ -223,9 +247,10 @@ struct ContentView: View {
     }
 
     private var statusText: String {
-        player.playing
-            ? "Playing row \(player.current + 1) (\(Int(player.elapsed)) of \(Int(player.rowTime)) s)"
-            : "Stopped."
+        let where_ = player.sendToES8 ? "ES-8" : "Dry run"
+        return player.playing
+            ? "\(where_) · Playing row \(player.current + 1) · \(Int(player.elapsed)) of \(Int(player.rowTime)) s"
+            : "\(where_) · Stopped"
     }
 
     /// 0...1 for the row being played, nil for the others.
@@ -242,24 +267,51 @@ struct ContentView: View {
 
     private var header: some View {
         HStack(spacing: 6) {
-            Color.clear.frame(width: 34, height: 1)
-            Text("Chapter").frame(width: 150, alignment: .leading)
-            Text("Time s").frame(width: 66)
-            Text("Glide s").frame(width: 66)
-            ForEach(0..<outputs, id: \.self) { k in
-                VStack(spacing: 0) {
-                    Text("Out \(k + 1)")
-                    Text(k == 4 || k == 5 ? "pitch" : k == gateOutput ? "gate" : k == trigOutput ? "trig" : ["lead", "harmony", "drone", "texture"][k])
-                        .font(.caption2)
-                    Text(String(format: "%+.2f", player.volts[k])).monospacedDigit()
-                        .foregroundStyle(Color.green)
+            HStack(spacing: 6) {
+                Color.clear.frame(width: 34, height: 1)
+                columnTitle("Chapter").padding(.leading, 6).frame(width: 150, alignment: .leading)
+                columnTitle("Time", unit: "sec").padding(.leading, 6).frame(width: 66, alignment: .leading)
+                columnTitle("Glide", unit: "sec").padding(.leading, 6).frame(width: 66, alignment: .leading)
+            }
+            .frame(maxHeight: .infinity, alignment: .bottom)
+            .padding(.bottom, 4)
+            .zone(Theme.red)
+            outputHeaders(0..<4, color: Theme.blue).zone(Theme.blue)
+            outputHeaders(4..<outputs, color: Theme.orange).zone(Theme.orange)
+            Color.clear.frame(width: 58, height: 1)
+        }
+        .fixedSize(horizontal: false, vertical: true)
+        .padding(.horizontal, 6)
+    }
+
+    private func columnTitle(_ title: String, unit: String? = nil) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 3) {
+            Text(title).font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.label)
+            if let unit { Text(unit).font(.system(size: 10)).foregroundStyle(Theme.label.opacity(0.55)) }
+        }
+        .fixedSize()
+    }
+
+    private func outputHeaders(_ range: Range<Int>, color: Color) -> some View {
+        HStack(spacing: 6) {
+            ForEach(range, id: \.self) { k in
+                VStack(spacing: 3) {
+                    HStack(spacing: 5) {
+                        Text("\(k + 1)")
+                            .font(.system(size: 10, weight: .bold).monospacedDigit())
+                            .foregroundStyle(.white)
+                            .frame(width: 16, height: 16)
+                            .background(Circle().fill(color.opacity(0.85)))
+                            .help("ES-8 output \(k + 1)")
+                        Text(outputNames[k]).font(.system(size: 12, weight: .semibold)).foregroundStyle(Theme.label)
+                    }
+                    Text(String(format: "%+.2f V", player.volts[k]))
+                        .font(.system(size: 11, weight: .medium).monospacedDigit())
+                        .foregroundStyle(abs(player.volts[k]) > 0.005 ? Theme.live : Theme.label.opacity(0.4))
                 }
                 .frame(width: 84)
             }
-            Color.clear.frame(width: 58, height: 1)
         }
-        .font(.caption).foregroundStyle(.secondary)
-        .padding(.horizontal, 6)
     }
 }
 
@@ -274,35 +326,49 @@ struct RowView: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            RowNumber(number: index + 1, selected: selected, playing: progress != nil, action: onSelect)
-            TextField("", text: $row.name).frame(width: 150).escapeLeavesField()
-            TextField("", value: timeBinding, format: numberFormat).frame(width: 66).escapeLeavesField()
-            TextField("", value: glideBinding, format: numberFormat).frame(width: 66).escapeLeavesField()
-            ForEach(0..<outputs, id: \.self) { k in
-                if k == 4 || k == 5 {                        // Out 5 and 6 pick a pitch-shift interval
-                    intervalPicker($row.values[k])
-                } else if k == gateOutput {                  // Out 7: gate
-                    gatePicker($row.values[k])
-                } else if k == trigOutput {                  // Out 8: trigger
-                    TrigPicker(trig: $row.trig)
-                } else {
-                    KnobView(value: $row.values[k])
-                }
+            HStack(spacing: 6) {
+                RowNumber(number: index + 1, selected: selected, playing: progress != nil, action: onSelect)
+                TextField("Chapter name", text: $row.name).frame(width: 150).escapeLeavesField()
+                TextField("", value: timeBinding, format: numberFormat).frame(width: 66).escapeLeavesField()
+                    .monospacedDigit().help("Whole chapter, in seconds")
+                TextField("", value: glideBinding, format: numberFormat).frame(width: 66).escapeLeavesField()
+                    .monospacedDigit().help("Seconds spent gliding in from the previous chapter")
             }
-            HStack(spacing: 4) {
-                Button("⧉", action: onDuplicate).help("Duplicate")
-                Button("✕", action: onDelete).help("Delete")
+            .frame(maxHeight: .infinity)
+            .zone(Theme.red)
+            HStack(spacing: 6) {
+                ForEach(0..<4, id: \.self) { k in KnobView(value: $row.values[k]) }
             }
+            .zone(Theme.blue)
+            HStack(spacing: 6) {
+                intervalPicker($row.values[4])                  // Out 5 and 6 pick a pitch-shift interval
+                intervalPicker($row.values[5])
+                gatePicker($row.values[gateOutput])             // Out 7: gate
+                TrigPicker(trig: $row.trig)                     // Out 8: trigger
+            }
+            .frame(maxHeight: .infinity)
+            .zone(Theme.orange)
+            HStack(spacing: 10) {
+                Button(action: onDuplicate) { Image(systemName: "plus.square.on.square") }
+                    .help("Duplicate chapter")
+                Button(action: onDelete) { Image(systemName: "trash") }
+                    .help("Delete chapter")
+            }
+            .buttonStyle(.borderless)
+            .font(.system(size: 13))
+            .foregroundStyle(Theme.label.opacity(0.6))
             .frame(width: 58)
         }
-        .padding(.vertical, 8).padding(.horizontal, 6)
-        .background(RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .controlBackgroundColor)))
-        .overlay(RoundedRectangle(cornerRadius: 8)
-            .stroke(progress != nil ? Color.green : selected ? Color.accentColor : Color.secondary.opacity(0.25)))
+        .fixedSize(horizontal: false, vertical: true)
+        .padding(.vertical, 6).padding(.horizontal, 6)
+        .background(RoundedRectangle(cornerRadius: 9).fill(Theme.row))
+        .overlay(RoundedRectangle(cornerRadius: 9)
+            .stroke(progress != nil ? Theme.live : selected ? Color.accentColor : Color.black.opacity(0.15),
+                    lineWidth: progress != nil || selected ? 1.5 : 1))
         .overlay(alignment: .bottomLeading) {
             if let progress {
                 GeometryReader { g in
-                    Rectangle().fill(Color.green).frame(width: g.size.width * progress, height: 3)
+                    Rectangle().fill(Theme.live).frame(width: g.size.width * progress, height: 3)
                         .frame(maxHeight: .infinity, alignment: .bottom)
                 }
                 .clipShape(RoundedRectangle(cornerRadius: 8))
@@ -334,6 +400,7 @@ struct BrandMark: View {
                 .offset(x: size * 0.12, y: size * 0.1)
         }
         .padding(.bottom, 2)
+        .fixedSize()
         .accessibilityLabel("THEREELPEET")
     }
 }

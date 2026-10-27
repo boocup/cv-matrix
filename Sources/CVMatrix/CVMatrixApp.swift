@@ -36,6 +36,7 @@ struct CVMatrixApp: App {
         WindowGroup("THEREELPEET CV Matrix") {
             ContentView(store: store, player: player)
         }
+        .windowStyle(.hiddenTitleBar)            // the grey panel runs up under the window buttons
         .defaultSize(width: 1100, height: 780)   // room for about six rows; drag any edge to resize
         .windowResizability(.contentMinSize)
         .commands {
