@@ -21,9 +21,6 @@ final class Player {
     @ObservationIgnored private var index = 0
     @ObservationIgnored private var rowStart = 0.0
     @ObservationIgnored private var lastTick = 0.0
-    @ObservationIgnored private var rowTrig = Trig.none          // Out 8 trigger of the row being played
-    @ObservationIgnored private var trigAt = 0.0                  // seconds into the row, for .after
-    @ObservationIgnored private var trigPending = false
     @ObservationIgnored private var simPulse = false              // dry run: show the trigger for one tick
     @ObservationIgnored private var out: ES8Output?
     @ObservationIgnored private var ticker: Task<Void, Never>?
@@ -77,7 +74,6 @@ final class Player {
     func stop() {
         guard playing else { return }
         playing = false
-        trigPending = false
         current = -1
         elapsed = 0
         rowTime = 0
@@ -109,9 +105,6 @@ final class Player {
         elapsed = 0
         rowTime = row.time * grid.speed
         apply(row.values, glide: row.glide * grid.speed)
-        rowTrig = row.trig
-        trigAt = row.glide * grid.speed
-        trigPending = row.trig == .after
         if row.trig == .start { firePulse() }
     }
 
@@ -158,10 +151,6 @@ final class Player {
         }
         if playing {
             elapsed = t - rowStart
-            if trigPending && elapsed >= trigAt {
-                trigPending = false
-                firePulse()
-            }
             if elapsed >= rowTime {
                 index += 1
                 startRow()

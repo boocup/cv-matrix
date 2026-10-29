@@ -4,7 +4,7 @@
 
 A small Mac app that turns an Expert Sleepers **ES-8** into eight slowly moving control voltages for a modular rack.
 
-You write a piece as a list of **chapters** (rows). Each row holds eight voltages (one per ES-8 output, -5 to +5 V), how long the row lasts, and how much of that time is spent gliding in from the previous row. Press play and the rows run top to bottom, optionally looping. The outputs never jump: every change is a glide. On its own it runs fully offline and sends nothing anywhere except the ES-8. An optional button can ask Claude to write a new piece (see [Generate with Claude](#generate-with-claude-optional)).
+You write a piece as a list of **chapters** (rows). Each row holds eight voltages (one per ES-8 output, -5 to +5 V), how long the row lasts, and how much of that time is spent gliding in from the previous row. Press play and the rows run top to bottom, optionally looping. The outputs never jump: every change is a glide. It runs fully offline and sends nothing anywhere except the ES-8.
 
 It is made for long, evolving pieces: level or rate CVs, slow offsets, crossfades, anything that should drift over minutes rather than steps.
 
@@ -72,7 +72,7 @@ If the build fails, the usual causes are an older Xcode than macOS 14 supports, 
 A wrong voltage goes into real gear. The first time:
 
 1. Patch **only Out 1** to a multimeter or to an ES-8 input you can read back. Leave everything else unpatched.
-2. Set one row with Out 1 at +2 V and a glide of a few seconds.
+2. Set one row with Out 1 at +2 V, Time Short and Glide Low (a 7.5 s glide).
 3. Press play and check the meter. It should read about +2 V.
 
 Full scale (+-1.0 in the audio stream) is assumed to be about +-10 V on the jack. The author measured it about 1% low at 1, 2.5 and 5 V. Your unit may differ, so check it.
@@ -84,9 +84,10 @@ Full scale (+-1.0 in the audio stream) is assumed to be about +-10 V on the jack
 | Change a voltage | Drag a knob up or down (200 px is the full 10 V) |
 | Fine adjust | Hold **Shift** while dragging (ten times finer) |
 | Set a knob to 0 V | Double-click it |
-| Shift Out 5 or 6 by an interval | Pick it from the menu: None, major 3rd, 4th, 5th or octave (1 V/oct, upward). Custom lets you type any voltage |
-| Gate on Out 7 | Pick Low (0 V) or High (+5 V) from the menu. It is held for the whole row and snaps, with no glide |
-| Trigger on Out 8 | Pick None, At start or After glide. It sends a 20 ms +5 V pulse at the start of the row, or when its glide has finished |
+| Set a chapter's Time or Glide | Click a position on its switch, or drag the lever. Hover the switch to see what each position means for that chapter |
+| Shift Out 5 up or Out 6 down by an interval | Drag its stepped knob up or down: None, 3rd, 5th, Octave (1 V/oct). Double-click for None |
+| Gate on Out 7 | Flip its switch to On (+5 V). It is held for the whole row and snaps, with no glide |
+| Trigger on Out 8 | Flip its switch to On. It sends a 20 ms +5 V pulse at the start of the row |
 | Play from a row | Click its round number badge, or click its chapter in the visualizer |
 | Jump to another row while playing | Click that row's badge |
 | Stop | Press **Stop** (⌘.); every output glides to 0 V |
@@ -96,16 +97,16 @@ Full scale (+-1.0 in the audio stream) is assumed to be about +-10 V on the jack
 Each row has:
 
 - **Chapter**: a name, up to 40 characters, shown as a title. Double-click it to rename; Return or Escape finishes.
-- **Time**: how long the row lasts, in seconds (1 to 3600).
-- **Glide**: how many of those seconds are spent moving from the previous row's voltages to this row's. It can't be longer than the time.
+- **Time**: a three-way switch for how long the row lasts: Short 30 s, Standard 60 s, Long 120 s.
+- **Glide**: a three-way switch for how much of that time is spent moving from the previous row's voltages to this row's: Low a quarter, Medium a third, High half.
 - **Outputs 1 to 4** (Lead, Harmony, Drone, Texture, on a blue band): knobs, -5 to +5 V.
-- **Outputs 5 and 6** (Pitch, on an orange band): pitch-shift menus (None, major 3rd, 4th, 5th, octave, or Custom).
-- **Output 7** (Gate): a gate menu (Low or High).
-- **Output 8** (Trigger): a trigger menu (None, At start, After glide).
+- **Outputs 5 and 6** (Pitch ↑ and Pitch ↓, on an orange band): stepped pitch-shift knobs (None, major 3rd, 5th, octave), Out 5 upward and Out 6 downward.
+- **Output 7** (Gate): an Off / On switch.
+- **Output 8** (Trigger): an Off / On switch; On fires at the start of the row.
 
 The numbered badge in each column heading is the ES-8 output it drives.
 
-Along the top, next to the THEREELPEET wordmark: **Trigger All Rows** sets Out 8's trigger on every row at once, **Open…** (⌘O) and **Save…** (⌘S) load and save grid files, **Autosave** (off at every launch, see Files below), **Generate…** asks Claude for a new piece, and **Files** shows the grid folder in Finder.
+Along the top, next to the THEREELPEET wordmark: the name of the grid file you are working on ("Untitled" until it is saved), with **Edited** when it has unsaved changes, then **Open…** (⌘O), **Save** (⌘S) and **Save As…** (⇧⌘S).
 
 Under that is the dark **display**:
 
@@ -114,7 +115,7 @@ Under that is the dark **display**:
 - **Half / Normal / Double**: playback speed for the whole piece. A grid saved with some other speed keeps it, and none of the three is highlighted.
 - **Loop**: go back to row 1 after the last row. Otherwise it stops and glides to 0 V.
 - **ES-8 / Dry run**: on at every launch. Switch it off for a **dry run** that shows the computed voltages without sending anything.
-- The **visualizer** draws the whole piece, one colored line per output (1 Lead, 2 Harmony, 3 Drone, 4 Texture, 5 and 6 Pitch), as it plays from chapter 1, with chapter numbers along the top, gate-high stretches as an amber bar along the bottom and triggers as small ticks. While playing, a playhead moves across it, the part already played lights up, and a dot on each line shows where that output really is. Click anywhere in it to play from that chapter, or to jump there while playing.
+- The **visualizer** draws the whole piece, one colored line per output (1 Lead, 2 Harmony, 3 Drone, 4 Texture, 5 Pitch ↑, 6 Pitch ↓), as it plays from chapter 1, with chapter numbers along the top, gate-high stretches as an amber bar along the bottom and triggers as small ticks. While playing, a playhead moves across it, the part already played lights up, and a dot on each line shows where that output really is. Click anywhere in it to play from that chapter, or to jump there while playing.
 - The **meters** on the right show outputs 1 to 6 live, as bars up or down from 0 V. **G** lights while the gate is high, and **T** flashes on each trigger.
 
 The small numbers under each column heading are where that output is right now, so you can watch the glides.
@@ -122,28 +123,6 @@ The small numbers under each column heading are where that output is right now, 
 If you change a knob on the row that is playing, that output follows it with a half-second glide. Edits to other rows take effect when those rows play.
 
 The window sizes itself to show every row when it opens (up to the size of your screen).
-
-## Generate with Claude (optional)
-
-The **Generate…** button asks Claude to write a new piece and loads it. It is optional: without it, the app never touches the network.
-
-It works by running `chapters.py` from your own copy of [ambient-agent](https://github.com/boocup/ambient-agent) with the Claude backend. The app itself makes no network call and never sees your API key. The script runs in a login shell, so it picks up `ANTHROPIC_API_KEY` from your shell setup, and the key stays inside that process.
-
-You need:
-
-- an ambient-agent checkout with its `.venv` set up (see its README), at `~/vcv-dev/ambient-agent` or anywhere else you point the app at with **CV Matrix > Choose ambient-agent Folder...** (it is remembered)
-- `ANTHROPIC_API_KEY` exported in your shell (for example in `~/.zshrc`)
-- a recent ambient-agent: `chapters.py` needs its `--write-grid-dir` option
-
-How it goes:
-
-1. Click the button. A window asks you to describe your voices and what you want, in your own words ("Voice 1 and 2 are similar, voice 2 repeats note one. Voice 3 is a tape delay loop of voice 1. Sparse and dark please."), and for the number of **voices** (1 to 8) and **chapters** (1 to 12). The app remembers all three. Leave the description empty for the built-in four-voice setup. Click **Generate** (or press Cmd-Return). Claude writes the chapters one after another, and the main window shows which one it is on. **Cancel** stops it.
-2. Each run costs a few cents of API credit (one request per chapter).
-3. The new piece is saved as a grid file, named by date, time and its first chapter (for example `2026-10-15-0942-quiet-dawn-emergence.json`), in `~/Documents/CV Matrix/`. Existing files are never overwritten. **Files** opens that folder in Finder.
-4. The app loads it and selects row 1. **It does not start playing.** Press Play when you are ready.
-5. If something would be lost by loading (music is playing, or the current grid has edits you haven't saved), the app asks first. The new file is saved either way.
-
-Levels 0 to 1 become 0 to 5 V: voice 1 on Out 1, voice 2 on Out 2, and so on. Outputs beyond your voice count start at 0 V.
 
 ## How the glide works
 
@@ -168,11 +147,13 @@ The grid is a small JSON file:
       "loop": false
     }
 
-Grid files live in `~/Documents/CV Matrix/`: **Open…** and **Save…** open there, and Generate with Claude saves there. The folder is created the first time it is needed, and macOS may ask once whether the app may use your Documents folder.
+Grid files live in `~/Documents/CV Matrix/`: **Open…** and **Save As…** start there. The folder is created the first time it is needed, and macOS may ask once whether the app may use your Documents folder.
 
-- **Open…** loads a file like this. It asks before replacing the current grid and stops playback first. Loading never writes back to the file you opened.
-- **Save…** saves a copy of the current grid wherever you choose. It suggests the name of the file you last opened or saved, without the date or corpus-id prefix.
-- **Autosave** is a switch, off at every launch. When ticked, the current grid is written as you edit, to `~/Library/Application Support/CVMatrix/matrix_grid.json`, and that file is what the app opens at launch. With it off, your edits are lost when you quit unless you used Save….
+- **Open…** loads a file like this and stops playback first. Opening never writes to the file; only Save does.
+- Times and glides in a file are seconds. One that isn't a switch position (say a 90 s chapter with a 37.5 s glide) snaps to the nearest positions when it loads: the time to 30, 60 or 120 s, and the glide to the nearest quarter, third or half of that. Out 5 and 6 snap the same way to None, 3rd, 5th or octave, Out 7 to off or on, and a trigger saved as `"after"` (after the glide, from older versions) now fires at the start. The file itself only changes if you save over it.
+- **Save As…** saves the grid under a new name and from then on Save writes there. It suggests the name of the file you last opened or saved, without the date or corpus-id prefix.
+- **Save** writes to the file you opened or last saved; for an Untitled grid it asks for a name, like **Save As…**. Nothing is saved until you do.
+- The app reopens that file at launch. If you open another grid, close the window or quit with unsaved changes, it asks whether to save them first.
 
 ## Safety and limits
 
@@ -196,7 +177,6 @@ Grid files live in `~/Documents/CV Matrix/`: **Open…** and **Save…** open th
       Store.swift         the grid, loading, saving
       Player.swift        play logic and glides
       ES8Output.swift     Core Audio output to the ES-8
-      Generator.swift     runs ambient-agent's chapters.py for Generate with Claude
     scripts/
       make-app.sh         builds dist/CVMatrix.app
       make-icon.swift     draws the app icon

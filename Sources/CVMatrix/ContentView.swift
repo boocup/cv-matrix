@@ -2,18 +2,12 @@ import SwiftUI
 import AppKit
 import UniformTypeIdentifiers
 
-private let numberFormat: FloatingPointFormatStyle<Double> = .number.precision(.fractionLength(0...2))
-
 struct ContentView: View {
     @Bindable var store: MatrixStore
     @Bindable var player: Player
-    @State private var generator = Generator()
-    @AppStorage("generateChapters") private var generateChapters = 6
-    @AppStorage("generateBrief") private var generateBrief = ""
-    @AppStorage("generateVoices") private var generateVoices = 4
-    @State private var showPrompt = false
     @State private var clearedInitialFocus = false
     @State private var window: NSWindow?
+    @State private var closeGuard = CloseGuard()
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -23,36 +17,29 @@ struct ContentView: View {
                     Text("CV Matrix").font(.system(size: 22, weight: .bold)).foregroundStyle(Theme.label)
                 }
                 .padding(.trailing, 10)
-                if generator.running {
-                    ProgressView().controlSize(.small)
-                    Text(generator.progress).foregroundStyle(.secondary)
-                    Button("Cancel") { generator.cancel() }
-                }
                 Spacer(minLength: 16)
-                Menu {
-                    ForEach(Trig.allCases, id: \.self) { t in
-                        Button(t.label) { store.setAllTrigs(t) }
-                    }
-                } label: { Label("Trigger All Rows", systemImage: "bolt") }
-                .fixedSize()
-                .help("Set Out 8's trigger on every row at once. New rows copy the row above.")
-                Button { loadGrid() } label: { Label("Open…", systemImage: "doc") }
+                HStack(spacing: 6) {                                   // the file Save writes to, and whether it has edits
+                    Image(systemName: "doc.text").foregroundStyle(Theme.label.opacity(0.5))
+                    Text(store.fileURL?.deletingPathExtension().lastPathComponent ?? "Untitled")
+                        .foregroundStyle(Theme.label.opacity(0.8))
+                    if store.dirty { Text("Edited").foregroundStyle(Theme.label.opacity(0.45)) }
+                }
+                .font(.system(size: 12))
+                .lineLimit(1)
+                .help(store.fileURL?.path ?? "Not saved yet")
+                .padding(.trailing, 6)
+                Button { openGrid() } label: { Label("Open…", systemImage: "doc") }
                     .keyboardShortcut("o", modifiers: .command)
-                    .help("Load a grid file (⌘O)")
-                Button { saveGrid() } label: { Label("Save…", systemImage: "square.and.arrow.down") }
+                    .help("Open a grid file (⌘O)")
+                Button { store.save() } label: { Label("Save", systemImage: "square.and.arrow.down") }
                     .keyboardShortcut("s", modifiers: .command)
-                    .help("Save a copy of the grid (⌘S)")
-                Toggle("Autosave", isOn: $store.autosave).fixedSize()
-                    .help("Write edits to matrix_grid.json as you make them")
-                    .padding(.trailing, 4)
-                Button { showPrompt = true } label: { Label("Generate…", systemImage: "sparkles") }
-                    .disabled(generator.running)
-                    .help("Ask Claude to write a new piece. Opens a window for your direction, then runs chapters.py from your ambient-agent folder with the Claude backend: a few cents per run, uses your ANTHROPIC_API_KEY. The new grid is loaded but not played.")
-                Button { showGeneratedFolder() } label: { Label("Files", systemImage: "folder") }
-                    .help("Show the grid files folder (~/Documents/CV Matrix) in Finder")
+                    .disabled(!store.dirty && store.fileURL != nil)
+                    .help("Save to \(store.fileURL?.lastPathComponent ?? "a new file") (⌘S)")
+                Button { store.saveAs() } label: { Label("Save As…", systemImage: "square.and.arrow.down.on.square") }
+                    .keyboardShortcut("s", modifiers: [.command, .shift])
+                    .help("Save under a new name (⇧⌘S)")
             }
             DisplayPanel(store: store, player: player)
-            if !generator.error.isEmpty { Text(generator.error).foregroundStyle(.red) }
             if !player.message.isEmpty {
                 Text(player.message).foregroundStyle(.red)
             }
@@ -84,7 +71,7 @@ struct ContentView: View {
                 .padding(.bottom, 8)
             }
 
-            Text("Drag a knob up or down, with Shift for fine steps; double-click for 0 V. Click a row number to play from it, or to jump there while playing. Time is the whole chapter; Glide is the part of it spent moving from the previous one. Knobs run −5 to +5 V.")
+            Text("Drag a knob up or down, with Shift for fine steps; double-click for 0 V. Click a row number to play from it, or to jump there while playing. Time is the whole chapter (30, 60 or 120 s); Glide is the part of it spent moving from the previous one (¼, ⅓ or ½). Hover a switch for its values. Knobs run −5 to +5 V; the pitch knobs step through None, 3rd, 5th and Octave.")
                 .font(.system(size: 11)).foregroundStyle(Theme.label.opacity(0.6))
         }
         .padding(.horizontal, 18).padding(.bottom, 14).padding(.top, 2)
@@ -95,25 +82,16 @@ struct ContentView: View {
         )
         .background(Theme.panel.ignoresSafeArea())
         .preferredColorScheme(.light)                                    // the panel look is light only
-        .sheet(isPresented: $showPrompt) {
-            PromptSheet(brief: $generateBrief, voices: $generateVoices, chapters: $generateChapters) {
-                showPrompt = false
-                generate()
-            }
-        }
         .background(WindowAccessor { w in
             window = w
+            closeGuard.attach(to: w) { store.confirmDiscard() }
             if !clearedInitialFocus {                                  // AppKit gives the first text box (Speed) focus at launch
                 clearedInitialFocus = true
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { w.makeFirstResponder(nil) }
             }
         })
         .onAppear { fitWindowSoon() }
-        .onChange(of: store.autosave) { _, on in if on { store.scheduleSave() } }
-        .onChange(of: store.grid) { _, _ in
-            store.scheduleSave()
-            player.gridChanged()
-        }
+        .onChange(of: store.grid) { _, _ in player.gridChanged() }
     }
 
     /// Size the window to show every row (as far as the screen allows). Runs on open and after loading a grid.
@@ -136,83 +114,26 @@ struct ContentView: View {
         }
     }
 
-    private func saveGrid() {
-        let panel = NSSavePanel()
-        panel.allowedContentTypes = [.json]
-        panel.nameFieldStringValue = (store.gridName ?? "matrix_grid") + ".json"
-        panel.message = "Save a copy of the grid"
-        panel.directoryURL = MatrixStore.gridsDirForPanel()
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        do {
-            try store.save(to: url)
-            store.message = ""
-        } catch {
-            store.message = "could not save \(url.lastPathComponent): \(error.localizedDescription)"
-        }
-    }
-
     private static func findScrollView(in view: NSView) -> NSScrollView? {
         if let scroll = view as? NSScrollView { return scroll }
         for sub in view.subviews { if let found = findScrollView(in: sub) { return found } }
         return nil
     }
 
-    private func showGeneratedFolder() {
-        try? FileManager.default.createDirectory(at: MatrixStore.generatedDir, withIntermediateDirectories: true)
-        NSWorkspace.shared.open(MatrixStore.generatedDir)
-    }
-
-    private func generate() {
-        if !store.agentFolderValid && !store.chooseAgentFolder() { return }
-        generator.start(chapters: generateChapters, voices: generateVoices, brief: generateBrief, agentFolder: store.agentFolder, outputDir: MatrixStore.generatedDir) { url in
-            receiveGenerated(url)
-        }
-    }
-
-    /// A new grid arrived. Loading stops playback and replaces the grid, so ask first if either would lose something.
-    private func receiveGenerated(_ url: URL) {
-        if player.playing || store.dirty {
-            let alert = NSAlert()
-            alert.messageText = "Claude's new piece is ready: \(url.deletingPathExtension().lastPathComponent)"
-            alert.informativeText = (player.playing ? "Loading it stops the music now playing. " : "")
-                + (store.dirty ? "Your current grid has edits that are not saved. " : "")
-                + "The new piece is saved in \(MatrixStore.generatedDir.path) either way."
-            alert.addButton(withTitle: "Load now")
-            alert.addButton(withTitle: "Keep current grid")
-            guard alert.runModal() == .alertFirstButtonReturn else {
-                store.message = "New piece saved as \(url.lastPathComponent); use Load grid… to open it."
-                return
-            }
-        }
-        player.stop()
-        do {
-            try store.load(from: url)
-            store.message = "Loaded \(url.lastPathComponent) from Claude. Press Play when you are ready."
-            fitWindowSoon()
-        } catch {
-            store.message = "could not load \(url.lastPathComponent): \(error.localizedDescription)"
-        }
-    }
-
-    private func loadGrid() {
+    private func openGrid() {
+        guard store.confirmDiscard() else { return }
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [.json]
         panel.allowsMultipleSelection = false
         panel.message = "Choose a CV Matrix grid file (.json)"
-        panel.directoryURL = MatrixStore.gridsDirForPanel()
+        panel.directoryURL = store.fileURL?.deletingLastPathComponent() ?? MatrixStore.gridsDirForPanel()
         guard panel.runModal() == .OK, let url = panel.url else { return }
-        let alert = NSAlert()
-        alert.messageText = "Replace the current grid with \(url.lastPathComponent)?"
-        alert.informativeText = "The current grid is overwritten (it autosaves)."
-        alert.addButton(withTitle: "Replace")
-        alert.addButton(withTitle: "Cancel")
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
         player.stop()
         do {
             try store.load(from: url)
             fitWindowSoon()
         } catch {
-            store.message = "could not load \(url.lastPathComponent): not a grid file"
+            store.message = "could not open \(url.lastPathComponent): not a grid file"
         }
     }
 
@@ -228,8 +149,8 @@ struct ContentView: View {
             HStack(spacing: 6) {
                 Color.clear.frame(width: 34, height: 1)
                 columnTitle("Chapter").padding(.leading, 6).frame(width: 150, alignment: .leading)
-                columnTitle("Time", unit: "sec").padding(.leading, 6).frame(width: 66, alignment: .leading)
-                columnTitle("Glide", unit: "sec").padding(.leading, 6).frame(width: 66, alignment: .leading)
+                columnTitle("Time").padding(.leading, 6).frame(width: 66, alignment: .leading)
+                columnTitle("Glide").padding(.leading, 6).frame(width: 66, alignment: .leading)
             }
             .frame(maxHeight: .infinity, alignment: .bottom)
             .padding(.bottom, 4)
@@ -287,10 +208,12 @@ struct RowView: View {
             HStack(spacing: 6) {
                 RowNumber(number: index + 1, selected: selected, playing: progress != nil, action: onSelect)
                 ChapterName(name: $row.name, playing: progress != nil).frame(width: 150, alignment: .leading)
-                TextField("", value: timeBinding, format: numberFormat).frame(width: 66).escapeLeavesField()
-                    .monospacedDigit().help("Whole chapter, in seconds")
-                TextField("", value: glideBinding, format: numberFormat).frame(width: 66).escapeLeavesField()
-                    .monospacedDigit().help("Seconds spent gliding in from the previous chapter")
+                ThreeWaySwitch(position: $row.timeStep, title: "Time", names: timeNames,
+                               values: timeSteps.map { seconds($0) }).frame(width: 66)
+                ThreeWaySwitch(position: $row.glideStep, title: "Glide", names: glideNames,
+                               values: glideDivisors.indices.map {
+                                   "\(glideShareNames[$0])  ·  \(seconds(row.time / glideDivisors[$0]))"
+                               }).frame(width: 66)
             }
             .frame(maxHeight: .infinity)
             .zone(Theme.red)
@@ -299,10 +222,12 @@ struct RowView: View {
             }
             .zone(Theme.blue)
             HStack(spacing: 6) {
-                intervalPicker($row.values[4])                  // Out 5 and 6 pick a pitch-shift interval
-                intervalPicker($row.values[5])
-                gatePicker($row.values[gateOutput])             // Out 7: gate
-                TrigPicker(trig: $row.trig)                     // Out 8: trigger
+                PitchKnob(step: pitchStep(4), down: false)      // Out 5 and 6: pitch-shift intervals
+                PitchKnob(step: pitchStep(5), down: true)
+                OnOffSwitch(isOn: $row.gateOn,                  // Out 7: gate
+                            help: "Gate: On is +5 V, held for the whole chapter. It snaps (no glide).")
+                OnOffSwitch(isOn: Binding(get: { row.trig == .start }, set: { row.trig = $0 ? .start : .none }),
+                            help: "Trigger: a 20 ms +5 V pulse at the start of the chapter.")   // Out 8
             }
             .frame(maxHeight: .infinity)
             .zone(Theme.orange)
@@ -334,15 +259,11 @@ struct RowView: View {
         }
     }
 
-    private var timeBinding: Binding<Double> {
-        Binding(get: { row.time },
-                set: { row.time = clamp($0, 1, 3600); row.glide = min(row.glide, row.time) })
+    private func pitchStep(_ k: Int) -> Binding<Int> {
+        Binding(get: { row.pitchStep(k) }, set: { row.setPitchStep(k, $0) })
     }
 
-    private var glideBinding: Binding<Double> {
-        Binding(get: { row.glide },
-                set: { row.glide = clamp($0, 0, row.time) })
-    }
+    private func seconds(_ s: Double) -> String { String(format: s == s.rounded() ? "%.0f s" : "%.1f s", s) }
 }
 
 /// THEREELPEET as on the module panels: the word in black (white in dark mode) with a red copy offset slightly
@@ -360,13 +281,6 @@ struct BrandMark: View {
         .padding(.bottom, 2)
         .fixedSize()
         .accessibilityLabel("THEREELPEET")
-    }
-}
-
-extension View {
-    /// Escape leaves a text field (what you typed is kept), so a stray click into one is easy to get out of.
-    func escapeLeavesField() -> some View {
-        onExitCommand { NSApp.keyWindow?.makeFirstResponder(nil) }
     }
 }
 
@@ -446,39 +360,29 @@ struct RowNumber: View {
     }
 }
 
-/// The window that asks what to tell Claude before a piece is generated.
-struct PromptSheet: View {
-    @Binding var brief: String
-    @Binding var voices: Int
-    @Binding var chapters: Int
-    let onGenerate: () -> Void
-    @Environment(\.dismiss) private var dismiss
+/// Asks before the window closes with unsaved edits. It stands in as the window's delegate and passes everything else
+/// on to the delegate SwiftUI set.
+final class CloseGuard: NSObject, NSWindowDelegate {
+    private weak var original: NSWindowDelegate?
+    private var shouldClose: () -> Bool = { true }
 
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Generate with Claude").font(.title3.bold())
-            Text("Describe your voices and what you want, in your own words. Leave it empty for the built-in four-voice setup. Voice 1 goes to Out 1, voice 2 to Out 2, and so on; unused outputs stay at 0 V.")
-                .font(.callout).foregroundStyle(.secondary)
-            TextEditor(text: $brief)
-                .font(.body)
-                .frame(minHeight: 150)
-                .overlay(RoundedRectangle(cornerRadius: 6).stroke(Color.secondary.opacity(0.4)))
-            Text("For example: Voice 1 and 2 are similar, voice 2 repeats note one. Voice 3 is a tape delay loop of voice 1 with overdub. Sparse and dark please.")
-                .font(.caption).foregroundStyle(.secondary)
-            HStack(spacing: 24) {
-                Stepper("Voices: \(voices)", value: $voices, in: 1...8)
-                Stepper("Chapters: \(chapters)", value: $chapters, in: 1...12)
-            }
-            Text("One Claude request per chapter, a few cents in total. The piece is loaded when it is ready, and not played.")
-                .font(.caption).foregroundStyle(.secondary)
-            HStack {
-                Spacer()
-                Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
-                Button("Generate", action: onGenerate).keyboardShortcut(.return, modifiers: .command)
-                    .buttonStyle(.borderedProminent)
-            }
-        }
-        .padding(20)
-        .frame(width: 540)
+    func attach(to window: NSWindow, shouldClose: @escaping () -> Bool) {
+        self.shouldClose = shouldClose
+        guard window.delegate !== self else { return }
+        original = window.delegate
+        window.delegate = self
+    }
+
+    func windowShouldClose(_ sender: NSWindow) -> Bool {
+        guard shouldClose() else { return false }
+        return original?.windowShouldClose?(sender) ?? true
+    }
+
+    override func responds(to selector: Selector!) -> Bool {
+        super.responds(to: selector) || (original?.responds(to: selector) ?? false)
+    }
+
+    override func forwardingTarget(for selector: Selector!) -> Any? {
+        original?.responds(to: selector) == true ? original : nil
     }
 }

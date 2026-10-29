@@ -26,7 +26,7 @@ enum Theme {
 }
 
 /// Column names for the eight ES-8 outputs.
-let outputNames = ["Lead", "Harmony", "Drone", "Texture", "Pitch", "Pitch", "Gate", "Trigger"]
+let outputNames = ["Lead", "Harmony", "Drone", "Texture", "Pitch ↑", "Pitch ↓", "Gate", "Trigger"]
 
 extension Color {
     init(hex: UInt32) {

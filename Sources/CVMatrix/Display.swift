@@ -43,11 +43,7 @@ struct PiecePlan {
                 v[k] = end
             }
             if row.values[gateOutput] > gateVolts / 2 { gates.append(t...(t + time)) }
-            switch row.trig {
-            case .start: trigs.append(t)
-            case .after: trigs.append(t + glide)
-            case .none: break
-            }
+            if row.trig == .start { trigs.append(t) }
             t += time
         }
         total = max(t, 1)

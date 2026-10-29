@@ -1,8 +1,10 @@
 import SwiftUI
 
-/// Closing the window quits the app, and quitting glides the outputs to 0 V first.
+/// Closing the window quits the app, and quitting glides the outputs to 0 V first. Both ask first if there are
+/// unsaved edits.
 final class AppDelegate: NSObject, NSApplicationDelegate {
     @MainActor static var player: Player?
+    @MainActor static var store: MatrixStore?
 
     /// Started from a terminal (swift run) the app is not a bundle and may not come to the front,
     /// so Cmd-Q would go to whatever is in front instead (e.g. VS Code).
@@ -12,6 +14,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
+
+    @MainActor func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        Self.store?.confirmDiscard() == false ? .terminateCancel : .terminateNow
+    }
 
     @MainActor func applicationWillTerminate(_ notification: Notification) {
         Self.player?.shutdown()
@@ -30,6 +36,7 @@ struct CVMatrixApp: App {
         _store = State(initialValue: s)
         _player = State(initialValue: p)
         AppDelegate.player = p
+        AppDelegate.store = s
     }
 
     var body: some Scene {
@@ -39,10 +46,5 @@ struct CVMatrixApp: App {
         .windowStyle(.hiddenTitleBar)            // the grey panel runs up under the window buttons
         .defaultSize(width: 1100, height: 780)   // room for about six rows; drag any edge to resize
         .windowResizability(.contentMinSize)
-        .commands {
-            CommandGroup(after: .appInfo) {
-                Button("Choose ambient-agent Folder…") { store.chooseAgentFolder() }
-            }
-        }
     }
 }
