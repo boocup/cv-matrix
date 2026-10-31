@@ -106,7 +106,7 @@ Each row has:
 
 The numbered badge in each column heading is the ES-8 output it drives.
 
-Along the top, next to the THEREELPEET wordmark: the name of the grid file you are working on ("Untitled" until it is saved), with **Edited** when it has unsaved changes, then **Open…** (⌘O), **Save** (⌘S) and **Save As…** (⇧⌘S).
+Along the top, next to the THEREELPEET wordmark: the name of the grid file you are working on ("Untitled" until it is saved), with **Edited** when it has unsaved changes, then **Open…** (⌘O), **Save** (⌘S), **Save As…** (⇧⌘S) and **Export to OXI** (⌘E, see below).
 
 Under that is the dark **display**:
 
@@ -155,6 +155,18 @@ Grid files live in `~/Documents/CV Matrix/`: **Open…** and **Save As…** star
 - **Save** writes to the file you opened or last saved; for an Untitled grid it asks for a name, like **Save As…**. Nothing is saved until you do.
 - The app reopens that file at launch. If you open another grid, close the window or quit with unsaved changes, it asks whether to save them first.
 
+## Export to an OXI ONE
+
+**Export to OXI** (⌘E) writes the grid as an OXI ONE MKII project (firmware 2.2.10), so the OXI can play the piece without the Mac:
+
+- It always writes `~/Downloads/Projects/cvm.oxipro`, replacing the last export, so it lands in the same slot every time. macOS may ask once whether the app may use your Downloads folder.
+- In the OXI App's Projects tab, drag it from **On Computer** onto a slot **On Device**, then load that slot on the OXI and press Play.
+- Outputs 1 to 7 become sequencer 1's mod lanes 1 to 7, routed to **CV 1 to 7**. The gate (Out 7) switches instead of gliding. Triggers (Out 8) become short notes on sequencer 2, routed to **Gate 1**.
+- A lane has 128 steps, so the piece is played in steps: 3.75 s each at 64 BPM, with glides written as ramps of those steps. A longer piece gets longer steps (up to 10 s, about 21 minutes in all); the message under the display says which. A piece longer than that is refused.
+- Lanes reach +5 V and −3 V, the OXI's output range. Pitch shifts are rounded to the nearest lane value: Out 6 (down) within 10 cents, Out 5 (up) up to about 22 cents.
+
+The file format and the measurements behind this are in `~/vcv-dev/llm/OXI_EXPORT_NOTES.md`; `conductor/oxi_project.py` there writes the same file from the command line.
+
 ## Safety and limits
 
 - Every output is capped at **+-5 V** in the code, whatever the grid says.
@@ -177,6 +189,7 @@ Grid files live in `~/Documents/CV Matrix/`: **Open…** and **Save As…** star
       Store.swift         the grid, loading, saving
       Player.swift        play logic and glides
       ES8Output.swift     Core Audio output to the ES-8
+      OXIExport.swift     Export to OXI: the grid as an OXI ONE project
     scripts/
       make-app.sh         builds dist/CVMatrix.app
       make-icon.swift     draws the app icon

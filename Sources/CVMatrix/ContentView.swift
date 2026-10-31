@@ -38,6 +38,9 @@ struct ContentView: View {
                 Button { store.saveAs() } label: { Label("Save As…", systemImage: "square.and.arrow.down.on.square") }
                     .keyboardShortcut("s", modifiers: [.command, .shift])
                     .help("Save under a new name (⇧⌘S)")
+                Button { store.exportToOXI() } label: { Label("Export to OXI", systemImage: "square.and.arrow.up") }
+                    .keyboardShortcut("e", modifiers: .command)
+                    .help("Write the grid as an OXI ONE project, Downloads/Projects/cvm.oxipro, for the OXI App (⌘E)")
             }
             DisplayPanel(store: store, player: player)
             if !player.message.isEmpty {

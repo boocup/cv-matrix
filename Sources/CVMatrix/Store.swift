@@ -125,6 +125,19 @@ final class MatrixStore {
         return true
     }
 
+    /// Write the grid as cvm.oxipro for the OXI App to upload, and say how it came out.
+    func exportToOXI() {
+        do {
+            let s = try OXIExport.export(grid)
+            let step = s.step.formatted(.number.precision(.fractionLength(0...2)))
+            let bpm = s.bpm.formatted(.number.precision(.fractionLength(0...1)))
+            message = "Exported Downloads/Projects/cvm.oxipro: \(s.steps) steps of \(step) s at \(bpm) BPM. "
+                + "In the OXI App, drag it onto a slot, then load that slot on the OXI."
+        } catch {
+            message = "could not export to the OXI: \(error.localizedDescription)"
+        }
+    }
+
     /// Before something would throw away unsaved edits (opening another grid, quitting): ask to save them.
     /// Returns true to go ahead.
     func confirmDiscard() -> Bool {
